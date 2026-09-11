@@ -23,7 +23,6 @@ const (
 
 type ArgPossibility struct {
 	Type      ArgType
-	Values    []any
 	Children  []ArgPossibility
 	EndAction int
 }
@@ -58,16 +57,7 @@ func parseSubtree(possibilities []ArgPossibility, args []string, state OutData) 
 		var transformedVal any
 		var err error
 
-		// Check if it matches literal values first, otherwise use Type.Transform
-		if len(pos.Values) > 0 {
-			for _, v := range pos.Values {
-				if strVal, ok := v.(string); ok && strVal == args[0] {
-					matched = true
-					transformedVal = strVal
-					break
-				}
-			}
-		} else if pos.Type.Transform != nil {
+		if pos.Type.Transform != nil {
 			transformedVal, err = pos.Type.Transform(args[0])
 			if err == nil {
 				matched = true
