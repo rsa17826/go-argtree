@@ -33,32 +33,66 @@ type ArgType struct {
 	List      func() []string
 	Example   func() string
 }
-type OutData struct {
-}
+
+type OutData map[string]any
 
 func Parse(tree []ArgPossibility, args []string) (OutData, error) {
-	return parseSubtree(tree, args, state)
+	state := make(OutData)
+	_, err := parseSubtree(tree, args, state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }
-func parseSubtree(tree []ArgPossibility, args []string) (OutData, error) {
-	var finalOut = OutData{}
-	for argIdx := range args {
-		var lastOut any
-		var lastPossibility ArgPossibility
-		for _, pos := range tree {
-			var parser ArgType = pos.Type
-			out, err := parser.Transform(args[argIdx])
-			if err != nil {
-				lastOut = out
-				lastPossibility = pos
-				out, err = parseSubtree(pos.Children, args[argIdx:])
-				if err != nil {
-					fmt.Printf("finalOut: %v\n", finalOut)
-					return out
+
+func parseSubtree(possibilities []ArgPossibility, args []string, state OutData) (int, error) {
+	if len(args) == 0 {
+		if len(possibilities) == 0 {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("unexpected end of arguments")
+	}
+
+	for _, pos := range possibilities {
+		matched := false
+		var transformedVal any
+		var err error
+
+		// Check if it matches literal values first, otherwise use Type.Transform
+		if len(pos.Values) > 0 {
+			for _, v := range pos.Values {
+				if strVal, ok := v.(string); ok && strVal == args[0] {
+					matched = true
+					transformedVal = strVal
+					break
 				}
 			}
+		} else if pos.Type.Transform != nil {
+			transformedVal, err = pos.Type.Transform(args[0])
+			if err == nil {
+				matched = true
+			}
+		}
+
+		if matched {
+			if pos.Type.Name != "" {
+				state[pos.Type.Name] = transformedVal
+			}
+
+			// If there are children, parse the remaining arguments recursively
+			if len(pos.Children) > 0 {
+				consumed, err := parseSubtree(pos.Children, args[1:], state)
+				if err == nil {
+					return 1 + consumed, nil
+				}
+				continue
+			}
+
+			return 1, nil
 		}
 	}
-	return finalOut, nil
+
+	return 0, fmt.Errorf("unexpected argument: %s", args[0])
 }
 
 var (
