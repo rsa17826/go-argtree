@@ -21,13 +21,10 @@ const (
 	EndActionEnd  = iota
 )
 
-type ArgTree struct {
-	Possibilities []ArgPossibility
-}
 type ArgPossibility struct {
 	Type      ArgType
 	Values    []any
-	Children  ArgTree
+	Children  []ArgPossibility
 	EndAction int
 }
 type ArgType struct {
@@ -39,23 +36,29 @@ type ArgType struct {
 type OutData struct {
 }
 
-func Parse(tree ArgTree, args []string, state map[string]any) error {
+func Parse(tree []ArgPossibility, args []string) (OutData, error) {
+	return parseSubtree(tree, args, state)
+}
+func parseSubtree(tree []ArgPossibility, args []string) (OutData, error) {
 	var finalOut = OutData{}
 	for argIdx := range args {
 		var lastOut any
 		var lastPossibility ArgPossibility
-		for i := range tree.Possibilities {
-			var parser ArgType = tree.Possibilities[i].Type
+		for _, pos := range tree {
+			var parser ArgType = pos.Type
 			out, err := parser.Transform(args[argIdx])
 			if err != nil {
 				lastOut = out
-				lastPossibility = tree.Possibilities[i]
-				break
+				lastPossibility = pos
+				out, err = parseSubtree(pos.Children, args[argIdx:])
+				if err != nil {
+					fmt.Printf("finalOut: %v\n", finalOut)
+					return out
+				}
 			}
 		}
-		fmt.Printf("finalOut: %v\n", finalOut)
 	}
-	return nil
+	return finalOut, nil
 }
 
 var (

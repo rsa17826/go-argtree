@@ -78,47 +78,35 @@ func main() {
 	// Example CLI tree structure from your setup
 	var postKeySelect = argtree.ArgPossibility{
 		Type: ArgTypeKeyModMethod,
-		Children: argtree.ArgTree{
-			Possibilities: []argtree.ArgPossibility{
-				{
-					Type:      ArgTypeKey,
-					EndAction: argtree.EndActionLoop,
-				},
+		Children: []argtree.ArgPossibility{
+			{
+				Type:      ArgTypeKey,
+				EndAction: argtree.EndActionLoop,
 			},
 		},
 	}
-	cliTree := argtree.ArgTree{
-		Possibilities: []argtree.ArgPossibility{
-			{
-				Type:   ArgTypeLiteral,
-				Values: []any{"modify"},
-				Children: argtree.ArgTree{
-					Possibilities: []argtree.ArgPossibility{
+	cliTree := []argtree.ArgPossibility{
+		{
+			Type:   ArgTypeLiteral,
+			Values: []any{"modify"},
+			Children: []argtree.ArgPossibility{
+				{
+					Type: ArgTypeKey,
+					Children: []argtree.ArgPossibility{
 						{
-							Type: ArgTypeKey,
-							Children: argtree.ArgTree{
-								Possibilities: []argtree.ArgPossibility{
-									{
-										Type:   ArgTypeLiteral,
-										Values: []any{"from"},
-										Children: argtree.ArgTree{
-											Possibilities: []argtree.ArgPossibility{
-												{
-													Type:   ArgTypeLiteral,
-													Values: []any{"TODO device names"},
-													Children: argtree.ArgTree{
-														Possibilities: []argtree.ArgPossibility{
-															postKeySelect,
-														},
-													},
-												},
-											},
-										},
+							Type:   ArgTypeLiteral,
+							Values: []any{"from"},
+							Children: []argtree.ArgPossibility{
+								{
+									Type:   ArgTypeLiteral,
+									Values: []any{"TODO device names"},
+									Children: []argtree.ArgPossibility{
+										postKeySelect,
 									},
-									postKeySelect,
 								},
 							},
 						},
+						postKeySelect,
 					},
 				},
 			},
