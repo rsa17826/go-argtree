@@ -34,15 +34,16 @@ type ArgType struct {
 	Example   func() string
 }
 
-// Parse walks the ArgTree using the provided input arguments and updates a state map.
 func Parse(tree ArgTree, args []string, state map[string]any) error {
 	for argIdx := range args {
 		var lastOut any
+		var lastPossibility ArgPossibility
 		for i := range tree.Possibilities {
-			var parser ArgType = tree.Possibilities[i]
+			var parser ArgType = tree.Possibilities[i].Type
 			out, err := parser.Transform(args[argIdx])
 			if err != nil {
 				lastOut = out
+				lastPossibility = tree.Possibilities[i]
 				break
 			}
 		}
