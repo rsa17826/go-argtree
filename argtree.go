@@ -124,7 +124,7 @@ func Parse(tree []ArgPossibility, args []string) ([]OutData, error) {
 // corresponds to, used only for error positions.
 func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, int, error) {
 	if len(args) == 0 {
-		if len(possibilities) > 0 {
+		if hasViable(possibilities, state) {
 			return 0, EndActionEnd, &ParseError{
 				Pos: offset,
 				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
@@ -171,6 +171,14 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 
 		consumed, endAction, err := parseSubtree(pos.Children, args[1:], offset+1, state)
 		if err == nil {
+			if consumed == 0 {
+				// Nothing further matched beneath this node (either no args
+				// left, or every remaining child was excluded by If) - so
+				// this node itself is the terminal one, and its own
+				// EndAction is what should govern, not the placeholder
+				// EndActionEnd from the empty recursion above.
+				endAction = pos.EndAction
+			}
 			return 1 + consumed, endAction, nil
 		}
 
@@ -199,6 +207,15 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		Arg: args[0],
 		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities, state)),
 	}
+}
+
+func hasViable(possibilities []ArgPossibility, state OutData) bool {
+	for _, p := range possibilities {
+		if p.If == nil || p.If(state) {
+			return true
+		}
+	}
+	return false
 }
 
 func expectedNames(possibilities []ArgPossibility, state OutData) string {
