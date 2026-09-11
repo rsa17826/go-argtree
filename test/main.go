@@ -63,7 +63,7 @@ func MakeArgTypeLiteral(value string) argtree.ArgType {
 			case value:
 				return s, nil
 			default:
-				return nil, fmt.Errorf("is not " + value)
+				return nil, fmt.Errorf("is not %s", value)
 			}
 		},
 		List: func() []string {
@@ -109,6 +109,7 @@ func main() {
 		},
 	}
 
+	// input := []string{"modify", "k", "replace", "s"}
 	input := []string{"modify", "k"}
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
