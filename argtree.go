@@ -40,6 +40,13 @@ type ArgPossibility struct {
 	Name      string
 	Children  []ArgPossibility
 	EndAction int
+	// If, when non-nil, is checked against the state accumulated so far
+	// (including whatever this possibility's siblings' ancestors already
+	// wrote) before this possibility is even attempted. If it returns
+	// false, this possibility is skipped entirely, as if it weren't in the
+	// list - it won't be tried and won't appear in "expected one of" error
+	// messages.
+	If func(OutData) bool
 }
 type ArgType struct {
 	Transform func(string) (any, error)
@@ -117,7 +124,7 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		if len(possibilities) > 0 {
 			return 0, EndActionEnd, &ParseError{
 				Pos: offset,
-				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities)),
+				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
 			}
 		}
 		return 0, EndActionEnd, nil
@@ -133,6 +140,9 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 	for i := range possibilities {
 		pos := &possibilities[i]
 		if pos.Type.Transform == nil {
+			continue
+		}
+		if pos.If != nil && !pos.If(state) {
 			continue
 		}
 
@@ -184,7 +194,7 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 	return 0, EndActionEnd, &ParseError{
 		Pos: offset,
 		Arg: args[0],
-		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities)),
+		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities, state)),
 	}
 }
 
@@ -201,9 +211,12 @@ func setMatchedValue(state OutData, pos *ArgPossibility, val any) {
 	state[pos.Name] = val
 }
 
-func expectedNames(possibilities []ArgPossibility) string {
+func expectedNames(possibilities []ArgPossibility, state OutData) string {
 	names := make([]string, 0, len(possibilities))
 	for _, p := range possibilities {
+		if p.If != nil && !p.If(state) {
+			continue
+		}
 		names = append(names, p.Name)
 	}
 	return strings.Join(names, ", ")

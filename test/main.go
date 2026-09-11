@@ -23,17 +23,6 @@ var (
 			panic("TODO")
 		},
 	}
-	ArgTypeInt = argtree.ArgType{
-		Transform: func(s string) (any, error) {
-			return s, nil
-		},
-		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
-		},
-	}
 	ArgTypeKeyModMethod = argtree.ArgType{
 		Transform: func(s string) (any, error) {
 			switch s {
@@ -79,6 +68,27 @@ func main() {
 				Type:      ArgTypeKey,
 				Name:      "endKey",
 				EndAction: argtree.EndActionLoop,
+				If: func(d argtree.OutData) bool {
+					switch d["modMethod"] {
+					case "replace":
+						return true
+					default:
+						return false
+					}
+				},
+			},
+			{
+				Type:      argtree.ArgTypeInt,
+				Name:      "turboTime",
+				EndAction: argtree.EndActionLoop,
+				If: func(d argtree.OutData) bool {
+					switch d["modMethod"] {
+					case "turbo":
+						return true
+					default:
+						return false
+					}
+				},
 			},
 		},
 	}
