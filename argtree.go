@@ -20,11 +20,16 @@ import (
 //
 // )
 
-// EndActionEnd (the default, zero value) means: after this possibility
-// matches (and its children, if any, finish matching), stop trying to match
-// more from this list. EndActionLoop means: after this possibility matches,
-// go back to the start of the *same* possibility list and try to match
-// again against the remaining args, repeating until the args run out.
+// EndActionEnd (the default, zero value) means: once the match chain that
+// ends at this leaf possibility completes, stop — Parse returns whatever
+// args are left over as an error if any remain.
+//
+// EndActionLoop means: once the match chain that ends at this leaf
+// possibility completes, go back to the ROOT of the whole tree (the slice
+// originally passed to Parse) and try to match again against whatever args
+// remain, repeating until the args run out. This is what lets a whole
+// command shape like "modify k replace s" repeat: "modify k replace s
+// modify k replace d".
 const (
 	EndActionEnd = iota
 	EndActionLoop
@@ -32,11 +37,11 @@ const (
 
 type ArgPossibility struct {
 	Type      ArgType
+	Name      string
 	Children  []ArgPossibility
 	EndAction int
 }
 type ArgType struct {
-	Name      string
 	Transform func(string) (any, error)
 	List      func() []string
 	Example   func() string
@@ -63,59 +68,61 @@ func (e *ParseError) Error() string {
 
 func (e *ParseError) Unwrap() error { return e.Err }
 
+// Parse matches `tree` against `args` from the start. If the leaf that
+// terminates a successful match chain has EndActionLoop, matching restarts
+// from the root of `tree` against whatever args remain, repeating until the
+// args are exhausted.
 func Parse(tree []ArgPossibility, args []string) (OutData, error) {
 	state := make(OutData)
-	_, err := parseSubtree(tree, args, 0, state)
-	if err != nil {
-		return nil, err
+	remaining := args
+	offset := 0
+
+	for {
+		consumed, endAction, err := parseSubtree(tree, remaining, offset, state)
+		if err != nil {
+			return nil, err
+		}
+
+		remaining = remaining[consumed:]
+		offset += consumed
+
+		if endAction != EndActionLoop || len(remaining) == 0 {
+			break
+		}
 	}
+
+	if len(remaining) > 0 {
+		return nil, &ParseError{
+			Pos: offset,
+			Arg: remaining[0],
+			Err: fmt.Errorf("unexpected trailing argument"),
+		}
+	}
+
 	return state, nil
 }
 
-// parseSubtree repeatedly matches one possibility from `possibilities`
-// against the front of `args`. It keeps going (from the start of
-// `possibilities` again) as long as the most recently matched possibility
-// has EndAction == EndActionLoop and there are args left; otherwise it stops
-// after the first match. offset is the index into the original top-level
-// args slice that args[0] corresponds to, used only for error positions.
-func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, error) {
-	totalConsumed := 0
-
-	for {
-		if len(args) == 0 {
-			if totalConsumed == 0 && len(possibilities) > 0 {
-				return 0, &ParseError{
-					Pos: offset,
-					Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities)),
-				}
+// parseSubtree matches one possibility from `possibilities` against args[0]
+// (and, if it has children, against the args that follow), backtracking to
+// the next sibling whenever a match's subtree ultimately fails, and rolling
+// back any tentative state writes made by an abandoned branch.
+//
+// It returns the number of args consumed and the EndAction of the leaf that
+// terminated the chain (bubbled up unchanged through parent matches, since
+// only the terminal leaf's EndAction determines whether Parse should loop).
+// offset is the index into the original top-level args slice that args[0]
+// corresponds to, used only for error positions.
+func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, int, error) {
+	if len(args) == 0 {
+		if len(possibilities) > 0 {
+			return 0, EndActionEnd, &ParseError{
+				Pos: offset,
+				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities)),
 			}
-			return totalConsumed, nil
 		}
-
-		matchedPos, consumed, err := matchOnce(possibilities, args, offset, state)
-		if err != nil {
-			return 0, err
-		}
-
-		totalConsumed += consumed
-		args = args[consumed:]
-		offset += consumed
-
-		if matchedPos.EndAction != EndActionLoop {
-			return totalConsumed, nil
-		}
-		// EndActionLoop: go around again, matching from the start of the
-		// same `possibilities` list against whatever args remain.
+		return 0, EndActionEnd, nil
 	}
-}
 
-// matchOnce tries each possibility against args[0] (and, if it has children,
-// against the args that follow), backtracking to the next sibling whenever
-// a match's subtree ultimately fails. It rolls back any tentative state
-// writes made by an abandoned branch. On success it returns the matched
-// possibility (so the caller can check its EndAction) and the total number
-// of args consumed by it and its children.
-func matchOnce(possibilities []ArgPossibility, args []string, offset int, state OutData) (*ArgPossibility, int, error) {
 	var deepest *ParseError
 	considerFailure := func(candidate *ParseError) {
 		if deepest == nil || candidate.Pos > deepest.Pos {
@@ -134,33 +141,33 @@ func matchOnce(possibilities []ArgPossibility, args []string, offset int, state 
 			considerFailure(&ParseError{
 				Pos: offset,
 				Arg: args[0],
-				Err: fmt.Errorf("not a valid %s: %w", nameOrType(pos.Type), err),
+				Err: fmt.Errorf("not a valid %s - %v: %w", pos.Name, pos.Type, err),
 			})
 			continue
 		}
 
 		hadPrev, prevVal := false, any(nil)
-		if pos.Type.Name != "" {
-			prevVal, hadPrev = state[pos.Type.Name]
+		if pos.Name != "" {
+			prevVal, hadPrev = state[pos.Name]
 			setMatchedValue(state, pos, transformedVal)
 		}
 
 		if len(pos.Children) == 0 {
-			return pos, 1, nil
+			return 1, pos.EndAction, nil
 		}
 
-		consumed, err := parseSubtree(pos.Children, args[1:], offset+1, state)
+		consumed, endAction, err := parseSubtree(pos.Children, args[1:], offset+1, state)
 		if err == nil {
-			return pos, 1 + consumed, nil
+			return 1 + consumed, endAction, nil
 		}
 
 		// Branch failed: undo the tentative state write before trying the
 		// next sibling possibility.
-		if pos.Type.Name != "" {
+		if pos.Name != "" {
 			if hadPrev {
-				state[pos.Type.Name] = prevVal
+				state[pos.Name] = prevVal
 			} else {
-				delete(state, pos.Type.Name)
+				delete(state, pos.Name)
 			}
 		}
 
@@ -172,9 +179,9 @@ func matchOnce(possibilities []ArgPossibility, args []string, offset int, state 
 	}
 
 	if deepest != nil {
-		return nil, 0, deepest
+		return 0, EndActionEnd, deepest
 	}
-	return nil, 0, &ParseError{
+	return 0, EndActionEnd, &ParseError{
 		Pos: offset,
 		Arg: args[0],
 		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities)),
@@ -182,35 +189,28 @@ func matchOnce(possibilities []ArgPossibility, args []string, offset int, state 
 }
 
 // setMatchedValue records a match's value in state. For EndActionLoop
-// possibilities, repeated matches accumulate into a []any under the same
-// key instead of overwriting each other.
+// possibilities, repeated matches (across successive root-restarts)
+// accumulate into a []any under the same key instead of overwriting
+// each other.
 func setMatchedValue(state OutData, pos *ArgPossibility, val any) {
 	if pos.EndAction == EndActionLoop {
-		existing, _ := state[pos.Type.Name].([]any)
-		state[pos.Type.Name] = append(existing, val)
+		existing, _ := state[pos.Name].([]any)
+		state[pos.Name] = append(existing, val)
 		return
 	}
-	state[pos.Type.Name] = val
-}
-
-func nameOrType(t ArgType) string {
-	if t.Name != "" {
-		return t.Name
-	}
-	return "value"
+	state[pos.Name] = val
 }
 
 func expectedNames(possibilities []ArgPossibility) string {
 	names := make([]string, 0, len(possibilities))
 	for _, p := range possibilities {
-		names = append(names, nameOrType(p.Type))
+		names = append(names, p.Name)
 	}
 	return strings.Join(names, ", ")
 }
 
 var (
 	ArgTypeInt = ArgType{
-		Name: "Int",
 		Transform: func(s string) (any, error) {
 			return s, nil
 		},
