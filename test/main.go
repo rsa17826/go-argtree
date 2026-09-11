@@ -55,29 +55,27 @@ func MakeArgTypeAny(values []string) argtree.ArgType {
 }
 func main() {
 	var postKeySelect = argtree.ArgPossibility{
-		Type: ArgTypeKeyModMethod,
-		Name: "modMethod",
+		Type:      ArgTypeKeyModMethod,
+		Name:      "modMethod",
+		EndAction: argtree.EndActionLoop,
 		Children: []argtree.ArgPossibility{
 			{
 				Type:      ArgTypeKey,
 				Name:      "endKey",
 				EndAction: argtree.EndActionLoop,
 				If: func(d argtree.OutData) bool {
-					switch d["modMethod"] {
-					case "replace":
-						return true
-					default:
-						return false
-					}
+					return d["modMethod"] == "replace"
 				},
 			},
+			// invert
+			// toggle
 			{
 				Type:      argtree.ArgTypeInt,
-				Name:      "turboTime",
+				Name:      "delayTime",
 				EndAction: argtree.EndActionLoop,
 				If: func(d argtree.OutData) bool {
 					switch d["modMethod"] {
-					case "turbo":
+					case "delay", "maxpresstime", "minpresstime":
 						return true
 					default:
 						return false
@@ -116,7 +114,8 @@ func main() {
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace", "d"}
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace"}
 	// input := []string{"modify", "k", "replace", "s"}
-	input := []string{"modify", "k"}
+	// input := []string{"modify", "k"}
+	input := []string{"modify", "k", "invert"}
 	// argtree.ShowHelp(cliTree)
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
