@@ -19,9 +19,15 @@ import (
 //	Null
 //
 // )
+
+// EndActionEnd (the default, zero value) means: after this possibility
+// matches (and its children, if any, finish matching), stop trying to match
+// more from this list. EndActionLoop means: after this possibility matches,
+// go back to the start of the *same* possibility list and try to match
+// again against the remaining args, repeating until the args run out.
 const (
-	EndActionLoop = iota
-	EndActionEnd  = iota
+	EndActionEnd = iota
+	EndActionLoop
 )
 
 type ArgPossibility struct {
@@ -66,30 +72,59 @@ func Parse(tree []ArgPossibility, args []string) (OutData, error) {
 	return state, nil
 }
 
-// parseSubtree tries each possibility in turn (backtracking on failure) and
-// returns the number of args consumed on success. offset is the index into
-// the original top-level args slice that args[0] corresponds to, used only
-// to produce accurate error positions.
+// parseSubtree repeatedly matches one possibility from `possibilities`
+// against the front of `args`. It keeps going (from the start of
+// `possibilities` again) as long as the most recently matched possibility
+// has EndAction == EndActionLoop and there are args left; otherwise it stops
+// after the first match. offset is the index into the original top-level
+// args slice that args[0] corresponds to, used only for error positions.
 func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, error) {
-	if len(args) == 0 {
-		if len(possibilities) == 0 {
-			return 0, nil
+	totalConsumed := 0
+
+	for {
+		if len(args) == 0 {
+			if totalConsumed == 0 && len(possibilities) > 0 {
+				return 0, &ParseError{
+					Pos: offset,
+					Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities)),
+				}
+			}
+			return totalConsumed, nil
 		}
-		return 0, &ParseError{
-			Pos: offset,
-			Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities)),
+
+		matchedPos, consumed, err := matchOnce(possibilities, args, offset, state)
+		if err != nil {
+			return 0, err
 		}
+
+		totalConsumed += consumed
+		args = args[consumed:]
+		offset += consumed
+
+		if matchedPos.EndAction != EndActionLoop {
+			return totalConsumed, nil
+		}
+		// EndActionLoop: go around again, matching from the start of the
+		// same `possibilities` list against whatever args remain.
 	}
+}
 
+// matchOnce tries each possibility against args[0] (and, if it has children,
+// against the args that follow), backtracking to the next sibling whenever
+// a match's subtree ultimately fails. It rolls back any tentative state
+// writes made by an abandoned branch. On success it returns the matched
+// possibility (so the caller can check its EndAction) and the total number
+// of args consumed by it and its children.
+func matchOnce(possibilities []ArgPossibility, args []string, offset int, state OutData) (*ArgPossibility, int, error) {
 	var deepest *ParseError
-
 	considerFailure := func(candidate *ParseError) {
 		if deepest == nil || candidate.Pos > deepest.Pos {
 			deepest = candidate
 		}
 	}
 
-	for _, pos := range possibilities {
+	for i := range possibilities {
+		pos := &possibilities[i]
 		if pos.Type.Transform == nil {
 			continue
 		}
@@ -104,21 +139,19 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 			continue
 		}
 
-		// Tentatively record this match so children can see it, but keep
-		// enough info to roll back if this whole branch ends up failing.
 		hadPrev, prevVal := false, any(nil)
 		if pos.Type.Name != "" {
 			prevVal, hadPrev = state[pos.Type.Name]
-			state[pos.Type.Name] = transformedVal
+			setMatchedValue(state, pos, transformedVal)
 		}
 
 		if len(pos.Children) == 0 {
-			return 1, nil
+			return pos, 1, nil
 		}
 
 		consumed, err := parseSubtree(pos.Children, args[1:], offset+1, state)
 		if err == nil {
-			return 1 + consumed, nil
+			return pos, 1 + consumed, nil
 		}
 
 		// Branch failed: undo the tentative state write before trying the
@@ -139,13 +172,25 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 	}
 
 	if deepest != nil {
-		return 0, deepest
+		return nil, 0, deepest
 	}
-	return 0, &ParseError{
+	return nil, 0, &ParseError{
 		Pos: offset,
 		Arg: args[0],
 		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities)),
 	}
+}
+
+// setMatchedValue records a match's value in state. For EndActionLoop
+// possibilities, repeated matches accumulate into a []any under the same
+// key instead of overwriting each other.
+func setMatchedValue(state OutData, pos *ArgPossibility, val any) {
+	if pos.EndAction == EndActionLoop {
+		existing, _ := state[pos.Type.Name].([]any)
+		state[pos.Type.Name] = append(existing, val)
+		return
+	}
+	state[pos.Type.Name] = val
 }
 
 func nameOrType(t ArgType) string {

@@ -109,8 +109,10 @@ func main() {
 		},
 	}
 
+	input := []string{"modify", "k", "replace", "s", "modify", "k", "replace", "d"}
+	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace"}
 	// input := []string{"modify", "k", "replace", "s"}
-	input := []string{"modify", "k"}
+	// input := []string{"modify", "k"}
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
 		panic(err)
