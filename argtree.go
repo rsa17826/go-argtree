@@ -68,21 +68,4 @@ var (
 			panic("TODO")
 		},
 	}
-	ArgTypeKeyModMethod = ArgType{
-		Name: "KeyModMethod",
-		Transform: func(s string) (any, error) {
-			switch s {
-			case "replace":
-				return s, nil
-			default:
-				return nil, fmt.Errorf("not a valid method")
-			}
-		},
-		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
-		},
-	}
 )

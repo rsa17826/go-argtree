@@ -76,6 +76,16 @@ func main() {
 	state := make(map[string]any)
 
 	// Example CLI tree structure from your setup
+	var postKeySelect = argtree.ArgPossibility{
+		Type: ArgTypeKeyModMethod,
+		Children: argtree.ArgTree{
+			Possibilities: []argtree.ArgPossibility{
+				{
+					Type: ArgTypeKeyModMethod,
+				},
+			},
+		},
+	}
 	cliTree := argtree.ArgTree{
 		Possibilities: []argtree.ArgPossibility{
 			{
@@ -88,14 +98,23 @@ func main() {
 							Children: argtree.ArgTree{
 								Possibilities: []argtree.ArgPossibility{
 									{
-										Type:     ArgTypeLiteral,
-										Values:   []any{"from"},
-										Children: argtree.ArgTree{},
+										Type:   ArgTypeLiteral,
+										Values: []any{"from"},
+										Children: argtree.ArgTree{
+											Possibilities: []argtree.ArgPossibility{
+												{
+													Type:   ArgTypeLiteral,
+													Values: []any{"TODO device names"},
+													Children: argtree.ArgTree{
+														Possibilities: []argtree.ArgPossibility{
+															postKeySelect,
+														},
+													},
+												},
+											},
+										},
 									},
-									{
-										Type:     ArgTypeKeyModMethod,
-										Children: argtree.ArgTree{},
-									},
+									postKeySelect,
 								},
 							},
 						},
