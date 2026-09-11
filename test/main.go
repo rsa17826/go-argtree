@@ -53,26 +53,51 @@ var (
 			panic("TODO")
 		},
 	}
+	ArgTypeLiteral = argtree.ArgType{
+		Name: "Literal",
+		Transform: func(s string) (any, error) {
+			switch s {
+			case "replace":
+				return s, nil
+			default:
+				return nil, fmt.Errorf("not a valid method")
+			}
+		},
+		List: func() []string {
+			panic("TODO")
+		},
+		Example: func() string {
+			panic("TODO")
+		},
+	}
 )
 
 func main() {
 	state := make(map[string]any)
 
 	// Example CLI tree structure from your setup
-	cliTree := ArgTree{
-		Possibilities: []ArgPossibility{
+	cliTree := argtree.ArgTree{
+		Possibilities: []argtree.ArgPossibility{
 			{
-				Name: "modify",
-				Type: argtree.ArgType{},
-				Children: ArgTree{
-					Possibilities: []ArgPossibility{
+				Type:   argtree.ArgTypeLiteral,
+				Values: []any{"modify"},
+				Children: argtree.ArgTree{
+					Possibilities: []argtree.ArgPossibility{
 						{
 							Type: ArgTypeKey,
-							Children: ArgTree{Possibilities: []ArgPossibility{{
-								Type:     ArgTypeKeyModMethod,
-								Name:     "",
-								Children: ArgTree{},
-							}}},
+							Children: argtree.ArgTree{
+								Possibilities: []argtree.ArgPossibility{
+									{
+										Type:     ArgTypeLiteral,
+										Values:   []any{"from"},
+										Children: argtree.ArgTree{},
+									},
+									{
+										Type:     ArgTypeKeyModMethod,
+										Children: argtree.ArgTree{},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -81,11 +106,10 @@ func main() {
 	}
 
 	input := []string{"modify", "k"}
-	err := Parse(cliTree, input, state)
+	err := argtree.Parse(cliTree, input, state)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("State updated: %+v\n", state)
-	// Output: State updated: map[dynamic_key:k]
 }

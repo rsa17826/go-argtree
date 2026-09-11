@@ -24,7 +24,7 @@ type ArgTree struct {
 }
 type ArgPossibility struct {
 	Type     ArgType
-	Name     string
+	Values   []any
 	Children ArgTree
 }
 type ArgType struct {
