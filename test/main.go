@@ -79,7 +79,7 @@ func main() {
 	cliTree := argtree.ArgTree{
 		Possibilities: []argtree.ArgPossibility{
 			{
-				Type:   argtree.ArgTypeLiteral,
+				Type:   ArgTypeLiteral,
 				Values: []any{"modify"},
 				Children: argtree.ArgTree{
 					Possibilities: []argtree.ArgPossibility{
