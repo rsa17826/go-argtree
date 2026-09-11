@@ -129,4 +129,8 @@ func main() {
 	}
 
 	fmt.Printf("State updated: %+v\n", out)
+	for _, v := range out {
+		fmt.Printf("1 %+v\n", v["sourceKey"])
+		fmt.Printf("2 %+v\n", v["endKey"])
+	}
 }

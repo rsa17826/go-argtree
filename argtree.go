@@ -16,7 +16,6 @@ import (
 //	SignedFloart
 //	Time
 //	SignedTime
-//	Null
 //
 // )
 
@@ -163,7 +162,7 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		hadPrev, prevVal := false, any(nil)
 		if pos.Name != "" {
 			prevVal, hadPrev = state[pos.Name]
-			setMatchedValue(state, pos, transformedVal)
+			state[pos.Name] = transformedVal
 		}
 
 		if len(pos.Children) == 0 {
@@ -200,19 +199,6 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		Arg: args[0],
 		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities, state)),
 	}
-}
-
-// setMatchedValue records a match's value in state. For EndActionLoop
-// possibilities, repeated matches (across successive root-restarts)
-// accumulate into a []any under the same key instead of overwriting
-// each other.
-func setMatchedValue(state OutData, pos *ArgPossibility, val any) {
-	if pos.EndAction == EndActionLoop {
-		existing, _ := state[pos.Name].([]any)
-		state[pos.Name] = append(existing, val)
-		return
-	}
-	state[pos.Name] = val
 }
 
 func expectedNames(possibilities []ArgPossibility, state OutData) string {
