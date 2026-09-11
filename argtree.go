@@ -78,17 +78,21 @@ func (e *ParseError) Unwrap() error { return e.Err }
 // Parse matches `tree` against `args` from the start. If the leaf that
 // terminates a successful match chain has EndActionLoop, matching restarts
 // from the root of `tree` against whatever args remain, repeating until the
-// args are exhausted.
-func Parse(tree []ArgPossibility, args []string) (OutData, error) {
-	state := make(OutData)
+// args are exhausted. Each restart gets its own independent OutData, so a
+// repeated command shape like "modify k replace s modify k replace d"
+// produces one map per repetition rather than one merged map.
+func Parse(tree []ArgPossibility, args []string) ([]OutData, error) {
+	var results []OutData
 	remaining := args
 	offset := 0
 
 	for {
+		state := make(OutData)
 		consumed, endAction, err := parseSubtree(tree, remaining, offset, state)
 		if err != nil {
 			return nil, err
 		}
+		results = append(results, state)
 
 		remaining = remaining[consumed:]
 		offset += consumed
@@ -106,7 +110,7 @@ func Parse(tree []ArgPossibility, args []string) (OutData, error) {
 		}
 	}
 
-	return state, nil
+	return results, nil
 }
 
 // parseSubtree matches one possibility from `possibilities` against args[0]
