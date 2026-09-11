@@ -9,7 +9,6 @@ import (
 
 var (
 	ArgTypeKey = argtree.ArgType{
-		Name: "Key",
 		Transform: func(s string) (any, error) {
 			key, ok := input.StringToKey[s]
 			if !ok {
@@ -25,7 +24,6 @@ var (
 		},
 	}
 	ArgTypeInt = argtree.ArgType{
-		Name: "Int",
 		Transform: func(s string) (any, error) {
 			return s, nil
 		},
@@ -37,7 +35,6 @@ var (
 		},
 	}
 	ArgTypeKeyModMethod = argtree.ArgType{
-		Name: "KeyModMethod",
 		Transform: func(s string) (any, error) {
 			switch s {
 			case "replace":
@@ -57,7 +54,6 @@ var (
 
 func MakeArgTypeLiteral(value string) argtree.ArgType {
 	return argtree.ArgType{
-		Name: "Literal" + value,
 		Transform: func(s string) (any, error) {
 			switch s {
 			case value:
@@ -77,9 +73,11 @@ func MakeArgTypeLiteral(value string) argtree.ArgType {
 func main() {
 	var postKeySelect = argtree.ArgPossibility{
 		Type: ArgTypeKeyModMethod,
+		Name: "modMethod",
 		Children: []argtree.ArgPossibility{
 			{
 				Type:      ArgTypeKey,
+				Name:      "endKey",
 				EndAction: argtree.EndActionLoop,
 			},
 		},
@@ -90,12 +88,14 @@ func main() {
 			Children: []argtree.ArgPossibility{
 				{
 					Type: ArgTypeKey,
+					Name: "sourceKey",
 					Children: []argtree.ArgPossibility{
 						{
 							Type: MakeArgTypeLiteral("from"),
 							Children: []argtree.ArgPossibility{
 								{
 									Type: MakeArgTypeLiteral("TODO device names"),
+									Name: "deviceName",
 									Children: []argtree.ArgPossibility{
 										postKeySelect,
 									},
