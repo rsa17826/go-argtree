@@ -81,7 +81,8 @@ func main() {
 		Children: argtree.ArgTree{
 			Possibilities: []argtree.ArgPossibility{
 				{
-					Type: ArgTypeKey,
+					Type:      ArgTypeKey,
+					EndAction: argtree.EndActionLoop,
 				},
 			},
 		},

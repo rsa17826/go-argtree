@@ -1,31 +1,34 @@
 package argtree
 
-import (
-	"fmt"
-
-	"github.com/rsa17826/go-input-lib"
-)
+import "fmt"
 
 // ArgType
 // const (
-// 	Path = iota
-// 	String
-// 	Int
-// 	Float
-// 	SignedInt
-// 	SignedFloart
-// 	Time
-// 	SignedTime
-// 	Null
+//
+//	Path = iota
+//	String
+//	Int
+//	Float
+//	SignedInt
+//	SignedFloart
+//	Time
+//	SignedTime
+//	Null
+//
 // )
+const (
+	EndActionLoop = iota
+	EndActionEnd  = iota
+)
 
 type ArgTree struct {
 	Possibilities []ArgPossibility
 }
 type ArgPossibility struct {
-	Type     ArgType
-	Values   []any
-	Children ArgTree
+	Type      ArgType
+	Values    []any
+	Children  ArgTree
+	EndAction int
 }
 type ArgType struct {
 	Name      string
@@ -33,8 +36,11 @@ type ArgType struct {
 	List      func() []string
 	Example   func() string
 }
+type OutData struct {
+}
 
 func Parse(tree ArgTree, args []string, state map[string]any) error {
+	var finalOut = OutData{}
 	for argIdx := range args {
 		var lastOut any
 		var lastPossibility ArgPossibility
@@ -47,27 +53,12 @@ func Parse(tree ArgTree, args []string, state map[string]any) error {
 				break
 			}
 		}
+		fmt.Printf("finalOut: %v\n", finalOut)
 	}
 	return nil
 }
 
 var (
-	ArgTypeKey = ArgType{
-		Name: "Key",
-		Transform: func(s string) (any, error) {
-			key, ok := input.StringToKey[s]
-			if !ok {
-				return nil, fmt.Errorf("not a valid key name")
-			}
-			return key, nil
-		},
-		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
-		},
-	}
 	ArgTypeInt = ArgType{
 		Name: "Int",
 		Transform: func(s string) (any, error) {
