@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/rsa17826/go-argtree"
 	"github.com/rsa17826/go-input-lib"
@@ -17,28 +19,10 @@ var (
 			return key, nil
 		},
 		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
+			return slices.Collect(maps.Keys(input.StringToKey))
 		},
 	}
-	ArgTypeKeyModMethod = argtree.ArgType{
-		Transform: func(s string) (any, error) {
-			switch s {
-			case "replace":
-				return s, nil
-			default:
-				return nil, fmt.Errorf("not a valid method")
-			}
-		},
-		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
-		},
-	}
+	ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxPressTime", "minPressTime", "delay", "invert"})
 )
 
 func MakeArgTypeLiteral(value string) argtree.ArgType {
@@ -52,10 +36,20 @@ func MakeArgTypeLiteral(value string) argtree.ArgType {
 			}
 		},
 		List: func() []string {
-			panic("TODO")
+			return []string{value}
 		},
-		Example: func() string {
-			panic("TODO")
+	}
+}
+func MakeArgTypeAny(values []string) argtree.ArgType {
+	return argtree.ArgType{
+		Transform: func(s string) (any, error) {
+			if slices.Contains(values, s) {
+				return s, nil
+			}
+			return nil, fmt.Errorf("is not one of %+v", values)
+		},
+		List: func() []string {
+			return values
 		},
 	}
 }
@@ -119,10 +113,11 @@ func main() {
 		},
 	}
 
-	input := []string{"modify", "k", "replace", "s", "modify", "k", "replace", "d"}
+	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace", "d"}
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace"}
 	// input := []string{"modify", "k", "replace", "s"}
-	// input := []string{"modify", "k"}
+	input := []string{"modify", "k"}
+	// argtree.ShowHelp(cliTree)
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
 		panic(err)
