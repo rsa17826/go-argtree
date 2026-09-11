@@ -81,7 +81,7 @@ func main() {
 		Children: argtree.ArgTree{
 			Possibilities: []argtree.ArgPossibility{
 				{
-					Type: ArgTypeKeyModMethod,
+					Type: ArgTypeKey,
 				},
 			},
 		},
