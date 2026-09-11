@@ -71,7 +71,7 @@ func main() {
 			// toggle
 			{
 				Type:      argtree.ArgTypeInt,
-				Name:      "delayTime",
+				Name:      "effectTime",
 				EndAction: argtree.EndActionLoop,
 				If: func(d argtree.OutData) bool {
 					switch d["modMethod"] {
