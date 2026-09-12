@@ -46,6 +46,11 @@ type ArgPossibility struct {
 	// list - it won't be tried and won't appear in "expected one of" error
 	// messages.
 	If func(OutData) bool
+	// IfDescription is shown by ShowHelp to explain when this possibility
+	// applies. It exists because an arbitrary If closure can't be
+	// introspected - if If is set, you should set this too, or help output
+	// for this node just won't say what the condition is.
+	IfDescription string
 }
 type ArgType struct {
 	Transform func(string) (any, error)
@@ -229,16 +234,72 @@ func expectedNames(possibilities []ArgPossibility, state OutData) string {
 	return strings.Join(names, ", ")
 }
 
+// ShowHelp prints a human-readable rendering of the whole argument tree to
+// stdout: one indented line per possibility, showing its name, the values
+// its type accepts (via Type.List), whether it repeats (EndAction ==
+// EndActionLoop), and - if set - IfDescription for conditional nodes.
+//
+// Note: this calls every reachable Type.List(), so a List that panics
+// (e.g. the "TODO" placeholders in this package) will panic ShowHelp too -
+// that's intentional: it's telling you that type needs a real List before
+// it can be documented, rather than quietly leaving it out of the help
+// output.
+func ShowHelp(tree []ArgPossibility) {
+	fmt.Print(BuildHelp(tree))
+}
+
+// BuildHelp is the same rendering ShowHelp prints, returned as a string
+// instead of written to stdout.
+func BuildHelp(tree []ArgPossibility) string {
+	var b strings.Builder
+	writeHelpLevel(&b, tree, 0)
+	return b.String()
+}
+
+func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, depth int) {
+	indent := strings.Repeat("  ", depth)
+	for _, p := range possibilities {
+		b.WriteString(indent)
+		b.WriteString(describePossibility(p))
+		b.WriteString("\n")
+		if len(p.Children) > 0 {
+			writeHelpLevel(b, p.Children, depth+1)
+		}
+	}
+}
+
+func describePossibility(p ArgPossibility) string {
+	label := p.Name
+	if label == "" {
+		label = "value"
+	}
+
+	parts := []string{fmt.Sprintf("<%s>", label)}
+
+	if p.Type.List != nil {
+		if values := p.Type.List(); len(values) > 0 {
+			parts = append(parts, fmt.Sprintf("one of: %s", strings.Join(values, ", ")))
+		}
+	}
+
+	if p.EndAction == EndActionLoop {
+		parts = append(parts, "(repeats)")
+	}
+
+	if p.IfDescription != "" {
+		parts = append(parts, fmt.Sprintf("[only if %s]", p.IfDescription))
+	}
+
+	return strings.Join(parts, " ")
+}
+
 var (
 	ArgTypeInt = ArgType{
 		Transform: func(s string) (any, error) {
 			return s, nil
 		},
 		List: func() []string {
-			panic("TODO")
-		},
-		Example: func() string {
-			panic("TODO")
+			return []string{"<number>"}
 		},
 	}
 )

@@ -66,6 +66,7 @@ func main() {
 				If: func(d argtree.OutData) bool {
 					return d["modMethod"] == "replace"
 				},
+				IfDescription: `modMethod is "replace"`,
 			},
 			// invert
 			// toggle
@@ -81,6 +82,7 @@ func main() {
 						return false
 					}
 				},
+				IfDescription: `modMethod is "delay", "maxpresstime", or "minpresstime"`,
 			},
 		},
 	}
