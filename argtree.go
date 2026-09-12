@@ -344,7 +344,7 @@ func describePossibility(p ArgPossibility) string {
 		parts = append(parts, fmt.Sprintf("%s[only if %s]%s", colorCondition, p.IfDescription, ansiReset))
 	}
 
-	return strings.Join(parts, " ")
+	return strings.Join(parts, "")
 }
 
 var (
