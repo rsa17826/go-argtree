@@ -261,6 +261,19 @@ func BuildHelp(tree []ArgPossibility) string {
 // place in the branching structure is visible at a glance. prefix is the
 // exact string to print before each line at this depth, already carrying
 // the "│  " / "   " continuation from every ancestor level.
+// ANSI color codes used by ShowHelp/BuildHelp to visually separate the
+// different kinds of information on each line: the tree connectors, the
+// <name> label, the accepted-values list, the (repeats) marker, and the
+// [only if ...] condition.
+const (
+	ansiReset      = "\033[0m"
+	colorConnector = "\033[90m"   // dim gray
+	colorLabel     = "\033[1;36m" // bold cyan
+	colorValues    = "\033[32m"   // green
+	colorRepeat    = "\033[33m"   // yellow
+	colorCondition = "\033[35m"   // magenta
+)
+
 func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, prefix string) {
 	for i, p := range possibilities {
 		isLast := i == len(possibilities)-1
@@ -272,8 +285,10 @@ func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, prefix s
 			childPrefix = prefix + "   "
 		}
 
+		b.WriteString(colorConnector)
 		b.WriteString(prefix)
 		b.WriteString(connector)
+		b.WriteString(ansiReset)
 		b.WriteString(describePossibility(p))
 		b.WriteString("\n")
 
@@ -295,25 +310,25 @@ func describePossibility(p ArgPossibility) string {
 		label = "value"
 	}
 
-	parts := []string{fmt.Sprintf("<%s>", label)}
+	parts := []string{fmt.Sprintf("%s<%s>%s", colorLabel, label, ansiReset)}
 
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
 			if len(values) > maxHelpListItems {
 				shown := strings.Join(values[:maxHelpListItems], ", ")
-				parts = append(parts, fmt.Sprintf("one of: %s, ... (%d total)", shown, len(values)))
+				parts = append(parts, fmt.Sprintf("%sone of: %s, ... (%d total)%s", colorValues, shown, len(values), ansiReset))
 			} else {
-				parts = append(parts, fmt.Sprintf("one of: %s", strings.Join(values, ", ")))
+				parts = append(parts, fmt.Sprintf("%sone of: %s%s", colorValues, strings.Join(values, ", "), ansiReset))
 			}
 		}
 	}
 
 	if p.EndAction == EndActionLoop {
-		parts = append(parts, "(repeats)")
+		parts = append(parts, fmt.Sprintf("%s(repeats)%s", colorRepeat, ansiReset))
 	}
 
 	if p.IfDescription != "" {
-		parts = append(parts, fmt.Sprintf("[only if %s]", p.IfDescription))
+		parts = append(parts, fmt.Sprintf("%s[only if %s]%s", colorCondition, p.IfDescription, ansiReset))
 	}
 
 	return strings.Join(parts, " ")
