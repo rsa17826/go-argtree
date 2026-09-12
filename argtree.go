@@ -313,25 +313,26 @@ func describePossibility(p ArgPossibility) string {
 		label = "value"
 	}
 
-	parts := []string{fmt.Sprintf("%s<%s%s", colorLabel, label, ansiReset)}
+	parts := []string{}
+	var part string = fmt.Sprintf("%s<%s%s", colorLabel, label, ansiReset)
 	// parts := []string{fmt.Sprintf("%s<%s>%s", colorLabel, label, ansiReset)}
 
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
 			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
 			if p.Type.Name != "" {
-				parts = append(parts, fmt.Sprintf(":%s%s%s>%s", colorTypeName, p.Type.Name, colorLabel, ansiReset))
+				part += fmt.Sprintf(":%s%s%s>%s", colorTypeName, p.Type.Name, colorLabel, ansiReset)
 			}
 			if len(values) == 1 {
-				parts = append(parts, fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, values[0], ansiReset))
-				// parts = append(parts, fmt.Sprintf("%skeyword%s:%s %s%s", colorTypeName, colorSep, colorValues, values[0], ansiReset))
+				part += fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, values[0], ansiReset)
+				// part += fmt.Sprintf("%skeyword%s:%s %s%s", colorTypeName, colorSep, colorValues, values[0], ansiReset)
 			} else if len(values) > maxHelpListItems {
 				shown := strings.Join(values[:maxHelpListItems], joiner)
-				parts = append(parts, fmt.Sprintf("%s:%s %s%s, ...%s (%d total)%s", colorSep, colorValues, shown, colorSep, colorValues, len(values), ansiReset))
-				// parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s, ...%s (%d total)%s", colorTypeName, colorSep, colorValues, shown, colorSep, colorValues, len(values), ansiReset))
+				part += fmt.Sprintf("%s:%s %s%s, ...%s (%d total)%s", colorSep, colorValues, shown, colorSep, colorValues, len(values), ansiReset)
+				// part += fmt.Sprintf("%sone of%s:%s %s%s, ...%s (%d total)%s", colorTypeName, colorSep, colorValues, shown, colorSep, colorValues, len(values), ansiReset)
 			} else {
-				parts = append(parts, fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, strings.Join(values, joiner), ansiReset))
-				// parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s", colorTypeName, colorSep, colorValues, strings.Join(values, joiner), ansiReset))
+				part += fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, strings.Join(values, joiner), ansiReset)
+				// part += fmt.Sprintf("%sone of%s:%s %s%s", colorTypeName, colorSep, colorValues, strings.Join(values, joiner), ansiReset)
 			}
 		}
 	}
@@ -344,7 +345,7 @@ func describePossibility(p ArgPossibility) string {
 		parts = append(parts, fmt.Sprintf("%s[only if %s]%s", colorCondition, p.IfDescription, ansiReset))
 	}
 
-	return strings.Join(parts, "")
+	return strings.Join(parts, " ")
 }
 
 var (
