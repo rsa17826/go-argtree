@@ -270,6 +270,7 @@ const (
 	colorConnector = "\033[90m"   // dim gray
 	colorLabel     = "\033[1;36m" // bold cyan
 	colorValues    = "\033[32m"   // green
+	colorSep       = "\033[94m"   // yellow
 	colorRepeat    = "\033[33m"   // yellow
 	colorCondition = "\033[35m"   // magenta
 )
@@ -318,7 +319,7 @@ func describePossibility(p ArgPossibility) string {
 				shown := strings.Join(values[:maxHelpListItems], ", ")
 				parts = append(parts, fmt.Sprintf("%sone of: %s, ... (%d total)%s", colorValues, shown, len(values), ansiReset))
 			} else {
-				parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s", colorValues, colorLabel, colorValues, strings.Join(values, fmt.Sprintf("%s, %s", colorLabel, colorValues)), ansiReset))
+				parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s", colorValues, colorSep, colorValues, strings.Join(values, fmt.Sprintf("%s, %s", colorSep, colorValues)), ansiReset))
 			}
 		}
 	}
