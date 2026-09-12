@@ -116,6 +116,14 @@ func main() {
 		},
 	}
 
+	// zsh (see the generated _mycli completion function) invokes this
+	// binary as `mycli __complete <already-typed-args...>` to ask what
+	// could come next. This has to be handled here, after cliTree exists,
+	// since Complete needs the same tree Parse uses.
+	if argtree.CheckCompletionRequest(cliTree) {
+		return
+	}
+
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace", "d"}
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace"}
 	// input := []string{"modify", "k", "replace", "s"}

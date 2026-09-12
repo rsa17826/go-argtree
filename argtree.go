@@ -2,6 +2,8 @@ package argtree
 
 import (
 	"fmt"
+	"os"
+	"sort"
 	"strings"
 )
 
@@ -233,6 +235,139 @@ func expectedNames(possibilities []ArgPossibility, state OutData) string {
 		names = append(names, p.Name)
 	}
 	return strings.Join(names, ", ")
+}
+
+// Complete returns the sorted, deduplicated List() values of every
+// possibility that could legally come next, given the args a user has
+// already typed in full (not including whatever word they're still in the
+// middle of typing - that's a shell-side prefix-filtering concern, not
+// this function's). If the already-typed args don't match the tree at all,
+// Complete returns nil (nothing to suggest). If they exactly complete a
+// valid command with no more root-loop repetitions possible, Complete also
+// returns nil, since there's nothing more that could follow.
+func Complete(tree []ArgPossibility, args []string) []string {
+	remaining := args
+
+	for {
+		state := make(OutData)
+		consumed, endAction, suggestions, err := completeSubtree(tree, remaining, state)
+		if err != nil {
+			return nil
+		}
+		if suggestions != nil {
+			return suggestions
+		}
+
+		remaining = remaining[consumed:]
+
+		if len(remaining) == 0 {
+			if endAction == EndActionLoop {
+				// The typed args exactly complete one full pass, and that
+				// pass's terminal leaf allows looping - so a fresh
+				// repetition could start next. Offer the tree's own root
+				// possibilities, with a brand new (empty) state, matching
+				// how Parse starts each repetition fresh.
+				return viableSuggestions(tree, make(OutData))
+			}
+			return nil
+		}
+
+		if endAction != EndActionLoop {
+			// There are more typed args, but the pass that just completed
+			// doesn't allow looping - Parse would reject this as a
+			// trailing-argument error, so there's nothing valid to suggest.
+			return nil
+		}
+		// Otherwise: this pass is done, more args remain, and looping is
+		// allowed - go again from the root for the next repetition.
+	}
+}
+
+// completeSubtree walks one pass over possibilities/args exactly like
+// parseSubtree, but instead of erroring when args run out, it returns the
+// currently-viable possibilities' List() values as suggestions. It doesn't
+// need parseSubtree's backtracking-with-rollback machinery: a completion
+// request is asking "what comes after args I've already committed to", so
+// any state written while confirming a match doesn't need undoing.
+func completeSubtree(possibilities []ArgPossibility, args []string, state OutData) (int, int, []string, error) {
+	if len(args) == 0 {
+		return 0, EndActionEnd, viableSuggestions(possibilities, state), nil
+	}
+
+	for i := range possibilities {
+		pos := &possibilities[i]
+		if pos.Type.Transform == nil {
+			continue
+		}
+		if pos.If != nil && !pos.If(state) {
+			continue
+		}
+
+		transformedVal, err := pos.Type.Transform(args[0])
+		if err != nil {
+			continue
+		}
+
+		if pos.Name != "" {
+			state[pos.Name] = transformedVal
+		}
+
+		if len(pos.Children) == 0 {
+			return 1, pos.EndAction, nil, nil
+		}
+
+		consumed, endAction, suggestions, err := completeSubtree(pos.Children, args[1:], state)
+		if err != nil {
+			continue
+		}
+		if suggestions != nil {
+			return 1 + consumed, endAction, suggestions, nil
+		}
+		if consumed == 0 {
+			endAction = pos.EndAction
+		}
+		return 1 + consumed, endAction, nil, nil
+	}
+
+	return 0, EndActionEnd, nil, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
+}
+
+// viableSuggestions collects List() values from every possibility whose If
+// (if any) passes against state, deduplicated and sorted.
+func viableSuggestions(possibilities []ArgPossibility, state OutData) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, p := range possibilities {
+		if p.If != nil && !p.If(state) {
+			continue
+		}
+		if p.Type.List == nil {
+			continue
+		}
+		for _, v := range p.Type.List() {
+			if !seen[v] {
+				seen[v] = true
+				out = append(out, v)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// printCompletions writes Complete's result one per line to stdout, which
+// is the format zsh's compadd (fed via command substitution) expects.
+func printCompletions(tree []ArgPossibility, args []string) {
+	for _, s := range Complete(tree, args) {
+		fmt.Println(s)
+	}
+}
+func CheckCompletionRequest(tree []ArgPossibility) bool {
+	if len(os.Args) > 1 && os.Args[1] == "__complete" {
+		printCompletions(tree, os.Args[2:])
+		return true
+	}
+	return false
 }
 
 // ShowHelp prints a human-readable rendering of the whole argument tree to
