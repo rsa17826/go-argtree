@@ -342,7 +342,7 @@ var (
 			return s, nil
 		},
 		List: func() []string {
-			return []string{"<number>"}
+			return []string{}
 		},
 	}
 )
