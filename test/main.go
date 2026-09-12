@@ -11,6 +11,7 @@ import (
 
 func MakeArgTypeLiteral(value string) argtree.ArgType {
 	return argtree.ArgType{
+		Name: "Keyword",
 		Transform: func(s string) (any, error) {
 			switch s {
 			case value:
@@ -26,6 +27,7 @@ func MakeArgTypeLiteral(value string) argtree.ArgType {
 }
 func MakeArgTypeAny(values []string) argtree.ArgType {
 	return argtree.ArgType{
+		Name: "AnyOf",
 		Transform: func(s string) (any, error) {
 			if slices.Contains(values, s) {
 				return s, nil
@@ -40,6 +42,7 @@ func MakeArgTypeAny(values []string) argtree.ArgType {
 func main() {
 	var (
 		ArgTypeKey = argtree.ArgType{
+			Name: "KeyName",
 			Transform: func(s string) (any, error) {
 				key, ok := input.StringToKey[s]
 				if !ok {

@@ -53,6 +53,7 @@ type ArgPossibility struct {
 	IfDescription string
 }
 type ArgType struct {
+	Name      string
 	Transform func(string) (any, error)
 	List      func() []string
 	Example   func() string
@@ -317,6 +318,9 @@ func describePossibility(p ArgPossibility) string {
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
 			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
+			if p.Type.Name != "" {
+				parts = append(parts, fmt.Sprintf("%s<%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorSep, ansiReset))
+			}
 			if len(values) == 1 {
 				parts = append(parts, fmt.Sprintf("%skeyword%s:%s %s%s", colorTypeName, colorSep, colorValues, values[0], ansiReset))
 			} else if len(values) > maxHelpListItems {
@@ -341,6 +345,7 @@ func describePossibility(p ArgPossibility) string {
 
 var (
 	ArgTypeInt = ArgType{
+		Name: "Int",
 		Transform: func(s string) (any, error) {
 			return s, nil
 		},
