@@ -318,14 +318,13 @@ func describePossibility(p ArgPossibility) string {
 	// parts := []string{fmt.Sprintf("%s<%s>%s", colorLabel, label, ansiReset)}
 
 	if p.Type.List != nil {
+		if p.Type.Name == "" {
+			part += fmt.Sprintf(">%s", ansiReset)
+		} else {
+			part += fmt.Sprintf("%s:%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
+		}
 		if values := p.Type.List(); len(values) > 0 {
 			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
-			if p.Type.Name != "" {
-				part += fmt.Sprintf("%s:%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
-			} else {
-				part += fmt.Sprintf(">%s", ansiReset)
-
-			}
 			if len(values) == 1 {
 				part += fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, values[0], ansiReset)
 				// part += fmt.Sprintf("%skeyword%s:%s %s%s", colorTypeName, colorSep, colorValues, values[0], ansiReset)
