@@ -271,6 +271,7 @@ const (
 	colorLabel     = "\033[1;36m" // bold cyan
 	colorValues    = "\033[32m"   // green
 	colorSep       = "\033[31m"   // ?
+	colorTypeName  = "\033[34m"   // ?
 	colorRepeat    = "\033[33m"   // yellow
 	colorCondition = "\033[35m"   // magenta
 )
@@ -317,7 +318,7 @@ func describePossibility(p ArgPossibility) string {
 		if values := p.Type.List(); len(values) > 0 {
 			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
 			if len(values) == 1 {
-				parts = append(parts, fmt.Sprintf("%skeyword%s:%s %s%s", colorLabel, colorSep, colorValues, values[0], ansiReset))
+				parts = append(parts, fmt.Sprintf("%skeyword%s:%s %s%s", colorTypeName, colorSep, colorValues, values[0], ansiReset))
 			} else if len(values) > maxHelpListItems {
 				shown := strings.Join(values[:maxHelpListItems], joiner)
 				parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s, ...%s (%d total)%s", colorValues, colorSep, colorValues, shown, colorSep, colorValues, len(values), ansiReset))
