@@ -122,7 +122,7 @@ func main() {
 	// input := []string{"modify", "k", "maxpresstime", "12"}
 	// input := []string{"modify", "k", "minpresstime", "11a2"}
 	input := []string{"modify", "k", "replace", "<ctrl"}
-	// argtree.ShowHelp(cliTree)
+	argtree.ShowHelp(cliTree)
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
 		panic(err)

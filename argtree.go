@@ -268,6 +268,12 @@ func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, depth in
 	}
 }
 
+// maxHelpListItems caps how many of a Type's List() values ShowHelp will
+// print inline. List exists for tab-completion, where showing everything is
+// the point; help text is read by a human, so a type with hundreds of valid
+// values (like key names) needs to be summarized instead of dumped in full.
+const maxHelpListItems = 8
+
 func describePossibility(p ArgPossibility) string {
 	label := p.Name
 	if label == "" {
@@ -278,7 +284,12 @@ func describePossibility(p ArgPossibility) string {
 
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
-			parts = append(parts, fmt.Sprintf("one of: %s", strings.Join(values, ", ")))
+			if len(values) > maxHelpListItems {
+				shown := strings.Join(values[:maxHelpListItems], ", ")
+				parts = append(parts, fmt.Sprintf("one of: %s, ... (%d total)", shown, len(values)))
+			} else {
+				parts = append(parts, fmt.Sprintf("one of: %s", strings.Join(values, ", ")))
+			}
 		}
 	}
 
