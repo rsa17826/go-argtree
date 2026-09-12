@@ -315,11 +315,12 @@ func describePossibility(p ArgPossibility) string {
 
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
+			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
 			if len(values) > maxHelpListItems {
-				shown := strings.Join(values[:maxHelpListItems], ", ")
+				shown := strings.Join(values[:maxHelpListItems], joiner)
 				parts = append(parts, fmt.Sprintf("%sone of: %s, ... (%d total)%s", colorValues, shown, len(values), ansiReset))
 			} else {
-				parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s", colorValues, colorSep, colorValues, strings.Join(values, fmt.Sprintf("%s, %s", colorSep, colorValues)), ansiReset))
+				parts = append(parts, fmt.Sprintf("%sone of%s:%s %s%s", colorValues, colorSep, colorValues, strings.Join(values, joiner), ansiReset))
 			}
 		}
 	}
