@@ -9,22 +9,6 @@ import (
 	"github.com/rsa17826/go-input-lib"
 )
 
-var (
-	ArgTypeKey = argtree.ArgType{
-		Transform: func(s string) (any, error) {
-			key, ok := input.StringToKey[s]
-			if !ok {
-				return nil, fmt.Errorf("not a valid key name")
-			}
-			return key, nil
-		},
-		List: func() []string {
-			return slices.Collect(maps.Keys(input.StringToKey))
-		},
-	}
-	ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxpresstime", "minpresstime", "delay", "invert"})
-)
-
 func MakeArgTypeLiteral(value string) argtree.ArgType {
 	return argtree.ArgType{
 		Transform: func(s string) (any, error) {
@@ -54,6 +38,22 @@ func MakeArgTypeAny(values []string) argtree.ArgType {
 	}
 }
 func main() {
+	var (
+		ArgTypeKey = argtree.ArgType{
+			Transform: func(s string) (any, error) {
+				key, ok := input.StringToKey[s]
+				if !ok {
+					return nil, fmt.Errorf("not a valid key name")
+				}
+				return key, nil
+			},
+			List: func() []string {
+				return slices.Collect(maps.Keys(input.StringToKey))
+			},
+		}
+		ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxpresstime", "minpresstime", "delay", "invert"})
+	)
+
 	var postKeySelect = argtree.ArgPossibility{
 		Type:      ArgTypeKeyModMethod,
 		Name:      "modMethod",
