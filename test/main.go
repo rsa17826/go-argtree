@@ -22,7 +22,7 @@ var (
 			return slices.Collect(maps.Keys(input.StringToKey))
 		},
 	}
-	ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxPressTime", "minPressTime", "delay", "invert"})
+	ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxpresstime", "minpresstime", "delay", "invert"})
 )
 
 func MakeArgTypeLiteral(value string) argtree.ArgType {
@@ -115,7 +115,11 @@ func main() {
 	// input := []string{"modify", "k", "replace", "s", "modify", "k", "replace"}
 	// input := []string{"modify", "k", "replace", "s"}
 	// input := []string{"modify", "k"}
-	input := []string{"modify", "k", "invert"}
+	// input := []string{"modify", "k", "invert"}
+	// input := []string{"modify", "k", "toggle"}
+	// input := []string{"modify", "k", "maxpresstime", "12"}
+	// input := []string{"modify", "k", "minpresstime", "11a2"}
+	input := []string{"modify", "k", "replace", "<ctrl"}
 	// argtree.ShowHelp(cliTree)
 	out, err := argtree.Parse(cliTree, input)
 	if err != nil {
