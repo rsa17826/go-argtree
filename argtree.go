@@ -337,6 +337,7 @@ func describePossibility(p ArgPossibility) string {
 		}
 	}
 
+	parts = append(parts, part)
 	if p.EndAction == EndActionLoop {
 		parts = append(parts, fmt.Sprintf("%s(repeats)%s", colorRepeat, ansiReset))
 	}
