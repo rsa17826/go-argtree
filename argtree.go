@@ -252,18 +252,33 @@ func ShowHelp(tree []ArgPossibility) {
 // instead of written to stdout.
 func BuildHelp(tree []ArgPossibility) string {
 	var b strings.Builder
-	writeHelpLevel(&b, tree, 0)
+	writeHelpLevel(&b, tree, "")
 	return b.String()
 }
 
-func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, depth int) {
-	indent := strings.Repeat("  ", depth)
-	for _, p := range possibilities {
-		b.WriteString(indent)
+// writeHelpLevel renders one level of the tree using box-drawing connectors
+// (├─, └─, │) the way `tree`/`ls -R` style output does, so a possibility's
+// place in the branching structure is visible at a glance. prefix is the
+// exact string to print before each line at this depth, already carrying
+// the "│  " / "   " continuation from every ancestor level.
+func writeHelpLevel(b *strings.Builder, possibilities []ArgPossibility, prefix string) {
+	for i, p := range possibilities {
+		isLast := i == len(possibilities)-1
+
+		connector := "├─ "
+		childPrefix := prefix + "│  "
+		if isLast {
+			connector = "└─ "
+			childPrefix = prefix + "   "
+		}
+
+		b.WriteString(prefix)
+		b.WriteString(connector)
 		b.WriteString(describePossibility(p))
 		b.WriteString("\n")
+
 		if len(p.Children) > 0 {
-			writeHelpLevel(b, p.Children, depth+1)
+			writeHelpLevel(b, p.Children, childPrefix)
 		}
 	}
 }
