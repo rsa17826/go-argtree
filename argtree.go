@@ -321,7 +321,7 @@ func describePossibility(p ArgPossibility) string {
 		if values := p.Type.List(); len(values) > 0 {
 			var joiner string = fmt.Sprintf("%s, %s", colorSep, colorValues)
 			if p.Type.Name != "" {
-				part += fmt.Sprintf(":%s%s%s>%s", colorTypeName, p.Type.Name, colorLabel, ansiReset)
+				part += fmt.Sprintf("%s:%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
 			}
 			if len(values) == 1 {
 				part += fmt.Sprintf("%s:%s %s%s", colorSep, colorValues, values[0], ansiReset)
