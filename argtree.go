@@ -270,7 +270,7 @@ const (
 	colorConnector = "\033[90m"   // dim gray
 	colorLabel     = "\033[1;36m" // bold cyan
 	colorValues    = "\033[32m"   // green
-	colorSep       = "\033[94m"   // yellow
+	colorSep       = "\033[31m"   // ?
 	colorRepeat    = "\033[33m"   // yellow
 	colorCondition = "\033[35m"   // magenta
 )
