@@ -250,11 +250,15 @@ func Complete(tree []ArgPossibility, args []string) []string {
 
 	for {
 		state := make(OutData)
-		consumed, endAction, suggestions, err := completeSubtree(tree, remaining, state)
+		consumed, endAction, suggestions, ranOut, err := completeSubtree(tree, remaining, state)
 		if err != nil {
 			return nil
 		}
-		if suggestions != nil {
+		if ranOut {
+			// We've reached the exact point where the typed args run out.
+			// suggestions is the real answer here even if it's empty/nil -
+			// that means "nothing is valid to type next", which is a
+			// different fact than "haven't hit the shortfall point yet".
 			return suggestions
 		}
 
@@ -285,13 +289,16 @@ func Complete(tree []ArgPossibility, args []string) []string {
 
 // completeSubtree walks one pass over possibilities/args exactly like
 // parseSubtree, but instead of erroring when args run out, it returns the
-// currently-viable possibilities' List() values as suggestions. It doesn't
-// need parseSubtree's backtracking-with-rollback machinery: a completion
-// request is asking "what comes after args I've already committed to", so
-// any state written while confirming a match doesn't need undoing.
-func completeSubtree(possibilities []ArgPossibility, args []string, state OutData) (int, int, []string, error) {
+// currently-viable possibilities' List() values as suggestions, plus
+// ranOut=true to mark that this is the actual "args exhausted here" point
+// (as opposed to consumed==0 meaning "nothing further to match, but not
+// because we ran out of args"). It doesn't need parseSubtree's
+// backtracking-with-rollback machinery: a completion request is asking
+// "what comes after args I've already committed to", so any state written
+// while confirming a match doesn't need undoing.
+func completeSubtree(possibilities []ArgPossibility, args []string, state OutData) (consumed int, endAction int, suggestions []string, ranOut bool, err error) {
 	if len(args) == 0 {
-		return 0, EndActionEnd, viableSuggestions(possibilities, state), nil
+		return 0, EndActionEnd, viableSuggestions(possibilities, state), true, nil
 	}
 
 	for i := range possibilities {
@@ -313,23 +320,23 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 		}
 
 		if len(pos.Children) == 0 {
-			return 1, pos.EndAction, nil, nil
+			return 1, pos.EndAction, nil, false, nil
 		}
 
-		consumed, endAction, suggestions, err := completeSubtree(pos.Children, args[1:], state)
+		childConsumed, childEndAction, childSuggestions, childRanOut, err := completeSubtree(pos.Children, args[1:], state)
 		if err != nil {
 			continue
 		}
-		if suggestions != nil {
-			return 1 + consumed, endAction, suggestions, nil
+		if childRanOut {
+			return 1 + childConsumed, childEndAction, childSuggestions, true, nil
 		}
-		if consumed == 0 {
-			endAction = pos.EndAction
+		if childConsumed == 0 {
+			childEndAction = pos.EndAction
 		}
-		return 1 + consumed, endAction, nil, nil
+		return 1 + childConsumed, childEndAction, nil, false, nil
 	}
 
-	return 0, EndActionEnd, nil, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
+	return 0, EndActionEnd, nil, false, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
 }
 
 // viableSuggestions collects List() values from every possibility whose If
