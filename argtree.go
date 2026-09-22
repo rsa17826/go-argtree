@@ -181,9 +181,21 @@ func Parse(tree []ArgPossibility, args []string) ([]OutData, error) {
 func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, int, error) {
 	if len(args) == 0 {
 		if hasViable(possibilities, state) {
+			firstViable := -1
+			for i, p := range possibilities {
+				if p.If == nil || p.If(state) {
+					firstViable = i
+					break
+				}
+			}
+			var path []int
+			if firstViable != -1 {
+				path = []int{firstViable}
+			}
 			return 0, EndActionEnd, &ParseError{
-				Pos: offset,
-				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
+				Pos:  offset,
+				Err:  fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
+				Path: path,
 			}
 		}
 		return 0, EndActionEnd, nil
@@ -328,8 +340,8 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 			b.WriteString(ansiReset)
 		}
 
-		// Annotate nodes along the path
-		if depth == len(path)-1 && i == pathIndex {
+		// Annotate nodes along the active failure path
+		if nodeActive && depth == len(path)-1 && i == pathIndex {
 			b.WriteString(" \033[31m< failed here\033[0m")
 		}
 
