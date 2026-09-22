@@ -482,9 +482,6 @@ const maxHelpListItems = 8
 
 func describePossibility(p ArgPossibility) string {
 	label := p.Name
-	if label == "" {
-		label = "value"
-	}
 
 	parts := []string{}
 	var part string = fmt.Sprintf("%s<%s", colorLabel, label)
@@ -493,7 +490,11 @@ func describePossibility(p ArgPossibility) string {
 	if p.Type.Name == "" {
 		part += fmt.Sprintf(">%s", ansiReset)
 	} else {
-		part += fmt.Sprintf("%s:%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
+		if label == "" {
+			part += fmt.Sprintf("%s%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
+		} else {
+			part += fmt.Sprintf("%s:%s%s%s>%s", colorSep, colorTypeName, p.Type.Name, colorLabel, ansiReset)
+		}
 	}
 	if p.Type.List != nil {
 		if values := p.Type.List(); len(values) > 0 {
