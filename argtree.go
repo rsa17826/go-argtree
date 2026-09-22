@@ -177,7 +177,7 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 			considerFailure(&ParseError{
 				Pos: offset,
 				Arg: args[0],
-				Err: fmt.Errorf("not a valid %s - %v: %w", pos.Name, pos.Type, err),
+				Err: fmt.Errorf("not a valid %s for %s - %v: %w", pos.Type.Name, pos.Name, pos.Type, err),
 			})
 			continue
 		}
