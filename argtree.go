@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ArgType
@@ -533,6 +534,46 @@ var (
 		},
 		List: func() []string {
 			return []string{}
+		},
+	}
+	// ArgTypeTime parses standard non-negative duration strings (e.g., "1h3m", "250ms", "1.5h").
+	// Rejects negative durations.
+	ArgTypeTime = ArgType{
+		Name: "Time",
+		Transform: func(s string) (any, error) {
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return nil, fmt.Errorf("invalid time duration format: %w", err)
+			}
+			if d < 0 {
+				return nil, fmt.Errorf("time duration cannot be negative: %s", s)
+			}
+			return d, nil
+		},
+		List: func() []string {
+			return []string{} // Dynamic type, no static completion list
+		},
+		Example: func() string {
+			return "1h3m"
+		},
+	}
+
+	// ArgTypeSignedTime parses signed duration strings, explicitly allowing
+	// both positive and negative values (e.g., "-2.5ms", "+10s", "1h3m").
+	ArgTypeSignedTime = ArgType{
+		Name: "SignedTime",
+		Transform: func(s string) (any, error) {
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return nil, fmt.Errorf("invalid signed time duration format: %w", err)
+			}
+			return d, nil
+		},
+		List: func() []string {
+			return []string{} // Dynamic type, no static completion list
+		},
+		Example: func() string {
+			return "-2.5ms"
 		},
 	}
 )
