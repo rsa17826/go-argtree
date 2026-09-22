@@ -270,7 +270,23 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 		desc := describePossibility(p)
 		if colorModifier != "" {
 			// Force text to remain gray by overriding ANSI resets
-			desc = strings.ReplaceAll(desc, ansiReset, ansiReset+colorModifier)
+			desc = strings.ReplaceAll(
+				strings.ReplaceAll(
+					strings.ReplaceAll(
+						strings.ReplaceAll(
+							strings.ReplaceAll(
+								strings.ReplaceAll(
+									strings.ReplaceAll(
+										strings.ReplaceAll(
+											desc, ansiReset, "",
+										), colorConnector, "",
+									), colorLabel, "",
+								), colorValues, "",
+							), colorSep, "",
+						), colorTypeName, "",
+					), colorRepeat, "",
+				), colorCondition, "",
+			)
 			b.WriteString(colorModifier)
 			b.WriteString(desc)
 			b.WriteString(ansiReset)
