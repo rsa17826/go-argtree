@@ -420,8 +420,17 @@ func Complete(tree []ArgPossibility, args []string) []string {
 // backtracking-with-rollback machinery: a completion request is asking
 // "what comes after args I've already committed to", so any state written
 // while confirming a match doesn't need undoing.
+// completeSubtree walks one pass over possibilities/args exactly like
+// parseSubtree, but instead of erroring when args run out, it returns the
+// currently-viable possibilities' List() values as suggestions, plus
+// ranOut=true to mark that this is the actual "args exhausted here" point
+// (as opposed to consumed==0 meaning "nothing further to match, but not
+// because we ran out of args"). It doesn't need parseSubtree's
+// backtracking-with-rollback machinery: a completion request is asking
+// "what comes after args I've already committed to", so any state written
+// while confirming a match doesn't need undoing.
 func completeSubtree(possibilities []ArgPossibility, args []string, state OutData) (consumed int, endAction int, suggestions []string, ranOut bool, err error) {
-	if len(args) == 0 {
+	if len(args) == 0 || (len(args) == 1 && args[0] == "") {
 		return 0, EndActionEnd, viableSuggestions(possibilities, state), true, nil
 	}
 
@@ -434,30 +443,41 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 			continue
 		}
 
-		transformedVal, err := pos.Type.Transform(args[0])
+		// Delegate token matching and repetition handling to parsePossibility
+		consumedTokens, transformedVal, err := parsePossibility(*pos, args)
 		if err != nil {
 			continue
 		}
 
+		hadPrev, prevVal := false, any(nil)
 		if pos.Name != "" {
+			prevVal, hadPrev = state[pos.Name]
 			state[pos.Name] = transformedVal
 		}
 
 		if len(pos.Children) == 0 {
-			return 1, pos.EndAction, nil, false, nil
+			return consumedTokens, pos.EndAction, nil, false, nil
 		}
 
-		childConsumed, childEndAction, childSuggestions, childRanOut, err := completeSubtree(pos.Children, args[1:], state)
-		if err != nil {
-			continue
+		childConsumed, childEndAction, childSuggestions, childRanOut, err := completeSubtree(pos.Children, args[consumedTokens:], state)
+		if err == nil {
+			if childRanOut {
+				return consumedTokens + childConsumed, childEndAction, childSuggestions, true, nil
+			}
+			if childConsumed == 0 {
+				childEndAction = pos.EndAction
+			}
+			return consumedTokens + childConsumed, childEndAction, nil, false, nil
 		}
-		if childRanOut {
-			return 1 + childConsumed, childEndAction, childSuggestions, true, nil
+
+		// Branch failed: undo the tentative state write before trying the next sibling
+		if pos.Name != "" {
+			if hadPrev {
+				state[pos.Name] = prevVal
+			} else {
+				delete(state, pos.Name)
+			}
 		}
-		if childConsumed == 0 {
-			childEndAction = pos.EndAction
-		}
-		return 1 + childConsumed, childEndAction, nil, false, nil
 	}
 
 	return 0, EndActionEnd, nil, false, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
