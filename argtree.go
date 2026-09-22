@@ -86,7 +86,7 @@ func (e *ParseError) Error() string {
 	}
 
 	if len(e.Tree) > 0 {
-		return baseMsg + "\n\n" + BuildErrorTree(e.Tree, e.Path)
+		return BuildErrorTree(e.Tree, e.Path) + "\n" + baseMsg
 	}
 	return baseMsg
 }
