@@ -258,7 +258,7 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 
 		// Apply dim gray to branches not taken
 		colorModifier := ""
-		if pathIndex != -1 && !isPath {
+		if !isPath {
 			colorModifier = "\033[90m"
 		}
 
