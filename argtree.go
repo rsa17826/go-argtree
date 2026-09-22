@@ -181,21 +181,10 @@ func Parse(tree []ArgPossibility, args []string) ([]OutData, error) {
 func parseSubtree(possibilities []ArgPossibility, args []string, offset int, state OutData) (int, int, error) {
 	if len(args) == 0 {
 		if hasViable(possibilities, state) {
-			firstViable := -1
-			for i, p := range possibilities {
-				if p.If == nil || p.If(state) {
-					firstViable = i
-					break
-				}
-			}
-			var path []int
-			if firstViable != -1 {
-				path = []int{firstViable}
-			}
 			return 0, EndActionEnd, &ParseError{
-				Pos:  offset,
-				Err:  fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
-				Path: path,
+				Pos: offset,
+				Err: fmt.Errorf("unexpected end of arguments, expected one of: %s", expectedNames(possibilities, state)),
+				// Leave Path empty so backtracking stops at the last matched parent node ("combo")
 			}
 		}
 		return 0, EndActionEnd, nil
