@@ -236,10 +236,11 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 }
 func BuildErrorTree(tree []ArgPossibility, path []int) string {
 	var b strings.Builder
-	writeErrorLevel(&b, tree, "", path, 0)
+	writeErrorLevel(&b, tree, "", path, 0, true)
 	return b.String()
 }
-func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix string, path []int, depth int) {
+
+func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix string, path []int, depth int, active bool) {
 	pathIndex := -1
 	if depth < len(path) {
 		pathIndex = path[depth]
@@ -247,7 +248,10 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 
 	for i, p := range possibilities {
 		isLast := i == len(possibilities)-1
-		isPath := (i == pathIndex)
+
+		// A node remains active (not greyed out) if its parent was active AND
+		// either we have passed the path end (pathIndex == -1) or this node is on the path (i == pathIndex).
+		nodeActive := active && (pathIndex == -1 || i == pathIndex)
 
 		connector := "├─ "
 		childPrefix := prefix + "│  "
@@ -256,9 +260,8 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 			childPrefix = prefix + "   "
 		}
 
-		// Apply dim gray to branches not taken
 		colorModifier := ""
-		if !isPath {
+		if !nodeActive {
 			colorModifier = "\033[90m"
 		}
 
@@ -271,6 +274,7 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 		if colorModifier == "" {
 			b.WriteString(desc)
 		} else {
+			// Strip individual ANSI colors so the entire line uses dim gray
 			desc = strings.ReplaceAll(
 				strings.ReplaceAll(
 					strings.ReplaceAll(
@@ -293,9 +297,16 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 			b.WriteString(ansiReset)
 		}
 
+		// Annotate nodes along the path
+		if depth == len(path)-1 && i == pathIndex {
+			b.WriteString(" \033[31m< failed here\033[0m")
+		}
+
 		b.WriteString("\n")
 
-		writeErrorLevel(b, p.Children, childPrefix, path, depth+1)
+		if len(p.Children) > 0 {
+			writeErrorLevel(b, p.Children, childPrefix, path, depth+1, nodeActive)
+		}
 	}
 }
 func hasViable(possibilities []ArgPossibility, state OutData) bool {
