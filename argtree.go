@@ -55,6 +55,8 @@ type ArgPossibility struct {
 	// introspected - if If is set, you should set this too, or help output
 	// for this node just won't say what the condition is.
 	IfDescription string
+	Repeat        bool // Allows parsing consecutive matching tokens
+	AllowZero     bool // If true, 0 matches is allowed. If false, requires at least 1 match.
 }
 type ArgType struct {
 	Name      string
@@ -86,12 +88,43 @@ func (e *ParseError) Error() string {
 	}
 
 	if len(e.Tree) > 0 {
-		return BuildErrorTree(e.Tree, e.Path) + "\n" + baseMsg
+		return BuildErrorTree(e.Tree, e.Path) + baseMsg
 	}
 	return baseMsg
 }
 
 func (e *ParseError) Unwrap() error { return e.Err }
+func parsePossibility(pos ArgPossibility, args []string) (consumed int, value any, err error) {
+	if !pos.Repeat {
+		// Normal single-token parsing
+		val, err := pos.Type.Transform(args[0])
+		if err != nil {
+			return 0, nil, err
+		}
+		return 1, val, nil
+	}
+
+	// Repeat mode: Collect all consecutive valid matches into a slice
+	var items []any
+	idx := 0
+
+	for idx < len(args) {
+		val, err := pos.Type.Transform(args[idx])
+		if err != nil {
+			// Stop repeating on first non-matching token
+			break
+		}
+		items = append(items, val)
+		idx++
+	}
+
+	// Check minimum match threshold
+	if len(items) == 0 && !pos.AllowZero {
+		return 0, nil, fmt.Errorf("expected at least 1 argument for %s, got 0", pos.Name)
+	}
+
+	return idx, items, nil
+}
 
 // Parse matches `tree` against `args` from the start. If the leaf that
 // terminates a successful match chain has EndActionLoop, matching restarts
@@ -172,11 +205,16 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 			continue
 		}
 
-		transformedVal, err := pos.Type.Transform(args[0])
+		// Delegate token matching and repetition handling to parsePossibility
+		consumedTokens, transformedVal, err := parsePossibility(*pos, args)
 		if err != nil {
+			argStr := ""
+			if len(args) > 0 {
+				argStr = args[0]
+			}
 			considerFailure(&ParseError{
 				Pos: offset,
-				Arg: args[0],
+				Arg: argStr,
 				Err: fmt.Errorf("not a valid %s for %s - %v: %w", pos.Type.Name, pos.Name, pos.Type, err),
 			})
 			continue
@@ -189,24 +227,18 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		}
 
 		if len(pos.Children) == 0 {
-			return 1, pos.EndAction, nil
+			return consumedTokens, pos.EndAction, nil
 		}
 
-		consumed, endAction, err := parseSubtree(pos.Children, args[1:], offset+1, state)
+		consumedChildren, endAction, err := parseSubtree(pos.Children, args[consumedTokens:], offset+consumedTokens, state)
 		if err == nil {
-			if consumed == 0 {
-				// Nothing further matched beneath this node (either no args
-				// left, or every remaining child was excluded by If) - so
-				// this node itself is the terminal one, and its own
-				// EndAction is what should govern, not the placeholder
-				// EndActionEnd from the empty recursion above.
+			if consumedChildren == 0 {
 				endAction = pos.EndAction
 			}
-			return 1 + consumed, endAction, nil
+			return consumedTokens + consumedChildren, endAction, nil
 		}
 
-		// Branch failed: undo the tentative state write before trying the
-		// next sibling possibility.
+		// Branch failed: undo the tentative state write before trying the next sibling
 		if pos.Name != "" {
 			if hadPrev {
 				state[pos.Name] = prevVal
@@ -216,7 +248,6 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		}
 
 		if pe, ok := err.(*ParseError); ok {
-			// Create a copy to prevent mutating shared paths when backtracking
 			peCopy := *pe
 			peCopy.Path = append([]int{i}, peCopy.Path...)
 			considerFailure(&peCopy)
