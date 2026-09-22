@@ -3,6 +3,7 @@ package argtree
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -337,6 +338,36 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 	}
 
 	return 0, EndActionEnd, nil, false, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
+}
+func MakeArgTypeLiteral(value string) ArgType {
+	return ArgType{
+		Name: "Keyword",
+		Transform: func(s string) (any, error) {
+			switch s {
+			case value:
+				return s, nil
+			default:
+				return nil, fmt.Errorf("is not %s", value)
+			}
+		},
+		List: func() []string {
+			return []string{value}
+		},
+	}
+}
+func MakeArgTypeAny(values []string) ArgType {
+	return ArgType{
+		Name: "AnyOf",
+		Transform: func(s string) (any, error) {
+			if slices.Contains(values, s) {
+				return s, nil
+			}
+			return nil, fmt.Errorf("is not one of %+v", values)
+		},
+		List: func() []string {
+			return values
+		},
+	}
 }
 
 // viableSuggestions collects List() values from every possibility whose If

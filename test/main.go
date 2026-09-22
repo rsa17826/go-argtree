@@ -9,36 +9,6 @@ import (
 	"github.com/rsa17826/go-input-lib"
 )
 
-func MakeArgTypeLiteral(value string) argtree.ArgType {
-	return argtree.ArgType{
-		Name: "Keyword",
-		Transform: func(s string) (any, error) {
-			switch s {
-			case value:
-				return s, nil
-			default:
-				return nil, fmt.Errorf("is not %s", value)
-			}
-		},
-		List: func() []string {
-			return []string{value}
-		},
-	}
-}
-func MakeArgTypeAny(values []string) argtree.ArgType {
-	return argtree.ArgType{
-		Name: "AnyOf",
-		Transform: func(s string) (any, error) {
-			if slices.Contains(values, s) {
-				return s, nil
-			}
-			return nil, fmt.Errorf("is not one of %+v", values)
-		},
-		List: func() []string {
-			return values
-		},
-	}
-}
 func main() {
 	var (
 		ArgTypeKey = argtree.ArgType{
@@ -54,7 +24,7 @@ func main() {
 				return slices.Collect(maps.Keys(input.StringToKey))
 			},
 		}
-		ArgTypeKeyModMethod = MakeArgTypeAny([]string{"replace", "toggle", "maxpresstime", "minpresstime", "delay", "invert"})
+		ArgTypeKeyModMethod = argtree.MakeArgTypeAny([]string{"replace", "toggle", "maxpresstime", "minpresstime", "delay", "invert"})
 	)
 
 	var postKeySelect = argtree.ArgPossibility{
@@ -91,17 +61,17 @@ func main() {
 	}
 	cliTree := []argtree.ArgPossibility{
 		{
-			Type: MakeArgTypeLiteral("modify"),
+			Type: argtree.MakeArgTypeLiteral("modify"),
 			Children: []argtree.ArgPossibility{
 				{
 					Type: ArgTypeKey,
 					Name: "sourceKey",
 					Children: []argtree.ArgPossibility{
 						{
-							Type: MakeArgTypeLiteral("from"),
+							Type: argtree.MakeArgTypeLiteral("from"),
 							Children: []argtree.ArgPossibility{
 								{
-									Type: MakeArgTypeLiteral("TODO device names"),
+									Type: argtree.MakeArgTypeLiteral("TODO device names"),
 									Name: "deviceName",
 									Children: []argtree.ArgPossibility{
 										postKeySelect,
