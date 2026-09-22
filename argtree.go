@@ -268,8 +268,9 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 		b.WriteString(ansiReset)
 
 		desc := describePossibility(p)
-		if colorModifier != "" {
-			// Force text to remain gray by overriding ANSI resets
+		if colorModifier == "" {
+			b.WriteString(desc)
+		} else {
 			desc = strings.ReplaceAll(
 				strings.ReplaceAll(
 					strings.ReplaceAll(
@@ -290,20 +291,11 @@ func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix 
 			b.WriteString(colorModifier)
 			b.WriteString(desc)
 			b.WriteString(ansiReset)
-		} else {
-			b.WriteString(desc)
 		}
 
-		// Mark the specific nodes along the failed path
-		if isPath {
-			b.WriteString(" \033[31m< here\033[0m")
-		}
 		b.WriteString("\n")
 
-		// Only render children if this node is on the path taken
-		if isPath && len(p.Children) > 0 {
-			writeErrorLevel(b, p.Children, childPrefix, path, depth+1)
-		}
+		writeErrorLevel(b, p.Children, childPrefix, path, depth+1)
 	}
 }
 func hasViable(possibilities []ArgPossibility, state OutData) bool {

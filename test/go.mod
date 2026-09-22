@@ -3,7 +3,7 @@ module test
 go 1.26.7
 
 require (
-	github.com/rsa17826/go-argtree v0.0.0-20260922203423-391947d82851
+	github.com/rsa17826/go-argtree v0.0.0-20260922204226-673eadd74856
 	github.com/rsa17826/go-input-lib v0.0.49
 )
 
