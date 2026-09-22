@@ -70,16 +70,25 @@ type OutData map[string]any
 // failure encountered while backtracking, so it points at the most likely
 // actual mistake rather than wherever the recursion happened to unwind to.
 type ParseError struct {
-	Pos int
-	Arg string
-	Err error
+	Pos  int
+	Arg  string
+	Err  error
+	Tree []ArgPossibility
+	Path []int
 }
 
 func (e *ParseError) Error() string {
+	baseMsg := ""
 	if e.Arg == "" {
-		return fmt.Sprintf("argument %d: %s", e.Pos, e.Err)
+		baseMsg = fmt.Sprintf("argument %d: %s", e.Pos, e.Err)
+	} else {
+		baseMsg = fmt.Sprintf("argument %d (%q): %s", e.Pos, e.Arg, e.Err)
 	}
-	return fmt.Sprintf("argument %d (%q): %s", e.Pos, e.Arg, e.Err)
+
+	if len(e.Tree) > 0 {
+		return baseMsg + "\n\n" + BuildErrorTree(e.Tree, e.Path)
+	}
+	return baseMsg
 }
 
 func (e *ParseError) Unwrap() error { return e.Err }
@@ -99,6 +108,10 @@ func Parse(tree []ArgPossibility, args []string) ([]OutData, error) {
 		state := make(OutData)
 		consumed, endAction, err := parseSubtree(tree, remaining, offset, state)
 		if err != nil {
+			if pe, ok := err.(*ParseError); ok {
+				pe.Tree = tree // Capture the root tree for this pass
+				return nil, pe
+			}
 			return nil, err
 		}
 		results = append(results, state)
@@ -203,9 +216,12 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		}
 
 		if pe, ok := err.(*ParseError); ok {
-			considerFailure(pe)
+			// Create a copy to prevent mutating shared paths when backtracking
+			peCopy := *pe
+			peCopy.Path = append([]int{i}, peCopy.Path...)
+			considerFailure(&peCopy)
 		} else {
-			considerFailure(&ParseError{Pos: offset, Err: err})
+			considerFailure(&ParseError{Pos: offset, Err: err, Path: []int{i}})
 		}
 	}
 
@@ -218,7 +234,62 @@ func parseSubtree(possibilities []ArgPossibility, args []string, offset int, sta
 		Err: fmt.Errorf("unexpected argument, expected one of: %s", expectedNames(possibilities, state)),
 	}
 }
+func BuildErrorTree(tree []ArgPossibility, path []int) string {
+	var b strings.Builder
+	writeErrorLevel(&b, tree, "", path, 0)
+	return b.String()
+}
+func writeErrorLevel(b *strings.Builder, possibilities []ArgPossibility, prefix string, path []int, depth int) {
+	pathIndex := -1
+	if depth < len(path) {
+		pathIndex = path[depth]
+	}
 
+	for i, p := range possibilities {
+		isLast := i == len(possibilities)-1
+		isPath := (i == pathIndex)
+
+		connector := "├─ "
+		childPrefix := prefix + "│  "
+		if isLast {
+			connector = "└─ "
+			childPrefix = prefix + "   "
+		}
+
+		// Apply dim gray to branches not taken
+		colorModifier := ""
+		if pathIndex != -1 && !isPath {
+			colorModifier = "\033[90m"
+		}
+
+		b.WriteString(colorConnector)
+		b.WriteString(prefix)
+		b.WriteString(connector)
+		b.WriteString(ansiReset)
+
+		desc := describePossibility(p)
+		if colorModifier != "" {
+			// Force text to remain gray by overriding ANSI resets
+			desc = strings.ReplaceAll(desc, ansiReset, ansiReset+colorModifier)
+			b.WriteString(colorModifier)
+			b.WriteString(desc)
+			b.WriteString(ansiReset)
+		} else {
+			b.WriteString(desc)
+		}
+
+		// Mark the specific nodes along the failed path
+		if isPath {
+			b.WriteString(" \033[31m< here\033[0m")
+		}
+		b.WriteString("\n")
+
+		// Only render children if this node is on the path taken
+		if isPath && len(p.Children) > 0 {
+			writeErrorLevel(b, p.Children, childPrefix, path, depth+1)
+		}
+	}
+}
 func hasViable(possibilities []ArgPossibility, state OutData) bool {
 	for _, p := range possibilities {
 		if p.If == nil || p.If(state) {
