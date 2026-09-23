@@ -443,7 +443,6 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 			continue
 		}
 
-		// Delegate token matching and repetition handling to parsePossibility
 		consumedTokens, transformedVal, err := parsePossibility(*pos, args)
 		if err != nil {
 			continue
@@ -453,6 +452,15 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 		if pos.Name != "" {
 			prevVal, hadPrev = state[pos.Name]
 			state[pos.Name] = transformedVal
+		}
+
+		// IF ARGS EXHAUSTED HERE: If all tokens in `args` were consumed by this node,
+		// and this node has children, return child suggestions.
+		if consumedTokens == len(args) {
+			if len(pos.Children) > 0 {
+				return consumedTokens, pos.EndAction, viableSuggestions(pos.Children, state), true, nil
+			}
+			return consumedTokens, pos.EndAction, nil, true, nil
 		}
 
 		if len(pos.Children) == 0 {
