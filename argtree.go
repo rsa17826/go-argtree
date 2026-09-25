@@ -366,73 +366,39 @@ func expectedNames(possibilities []ArgPossibility, state OutData) string {
 // already typed in full (not including whatever word they're still in the
 // middle of typing - that's a shell-side prefix-filtering concern, not
 // this function's). If the already-typed args don't match the tree at all,
-// Complete returns nil (nothing to suggest). If they exactly complete a
-// valid command with no more root-loop repetitions possible, Complete also
-// returns nil, since there's nothing more that could follow.
+// or they exactly complete a valid command with no more root-loop
+// repetitions possible, Complete returns nil (nothing to suggest).
 func Complete(tree []ArgPossibility, args []string) []string {
-	remaining := args
-
-	for {
-		state := make(OutData)
-		consumed, endAction, suggestions, ranOut, err := completeSubtree(tree, remaining, state)
-		if err != nil {
-			return nil
-		}
-		if ranOut {
-			// We've reached the exact point where the typed args run out.
-			// suggestions is the real answer here even if it's empty/nil -
-			// that means "nothing is valid to type next", which is a
-			// different fact than "haven't hit the shortfall point yet".
-			return suggestions
-		}
-
-		remaining = remaining[consumed:]
-
-		if len(remaining) == 0 {
-			if endAction == EndActionLoop {
-				// The typed args exactly complete one full pass, and that
-				// pass's terminal leaf allows looping - so a fresh
-				// repetition could start next. Offer the tree's own root
-				// possibilities, with a brand new (empty) state, matching
-				// how Parse starts each repetition fresh.
-				return viableSuggestions(tree, make(OutData))
-			}
-			return nil
-		}
-
-		if endAction != EndActionLoop {
-			// There are more typed args, but the pass that just completed
-			// doesn't allow looping - Parse would reject this as a
-			// trailing-argument error, so there's nothing valid to suggest.
-			return nil
-		}
-		// Otherwise: this pass is done, more args remain, and looping is
-		// allowed - go again from the root for the next repetition.
-	}
+	return completeSubtree(tree, tree, args, make(OutData))
 }
 
-// completeSubtree walks one pass over possibilities/args exactly like
-// parseSubtree, but instead of erroring when args run out, it returns the
-// currently-viable possibilities' List() values as suggestions, plus
-// ranOut=true to mark that this is the actual "args exhausted here" point
-// (as opposed to consumed==0 meaning "nothing further to match, but not
-// because we ran out of args"). It doesn't need parseSubtree's
-// backtracking-with-rollback machinery: a completion request is asking
-// "what comes after args I've already committed to", so any state written
-// while confirming a match doesn't need undoing.
-// completeSubtree walks one pass over possibilities/args exactly like
-// parseSubtree, but instead of erroring when args run out, it returns the
-// currently-viable possibilities' List() values as suggestions, plus
-// ranOut=true to mark that this is the actual "args exhausted here" point
-// (as opposed to consumed==0 meaning "nothing further to match, but not
-// because we ran out of args"). It doesn't need parseSubtree's
-// backtracking-with-rollback machinery: a completion request is asking
-// "what comes after args I've already committed to", so any state written
-// while confirming a match doesn't need undoing.
-func completeSubtree(possibilities []ArgPossibility, args []string, state OutData) (consumed int, endAction int, suggestions []string, ranOut bool, err error) {
+// completeSubtree walks one pass over possibilities/args, but unlike
+// parseSubtree it does not stop at the first possibility that matches -
+// it tries every sibling whose Type.Transform accepts args[0], because
+// several siblings can legally match the very same token while leading to
+// different completions. This tree relies on exactly that shape: a bare
+// "<key>" (EndActionLoop, no children, so it loops back to the root) sits
+// right next to "<key> from <device>" (children include "from"). Both
+// match a trailing key token identically; only by trying both do we learn
+// that either "from" or a fresh top-level command can legally follow.
+// Results from every matching sibling are merged, deduplicated and sorted.
+//
+// root is threaded through (rather than tracked via a return flag, as an
+// earlier version of this function did) so that when a branch's terminal
+// leaf is reached exactly where args run out and that leaf's EndAction is
+// EndActionLoop, this function can fold the root's own suggestions
+// straight into the merge - a fresh repetition could start next, mirroring
+// how Parse starts each repetition fresh from the root.
+//
+// It doesn't need parseSubtree's backtracking-with-rollback machinery:
+// each matching sibling gets its own cloned state, so failed or merely
+// alternative branches never pollute each other.
+func completeSubtree(root, possibilities []ArgPossibility, args []string, state OutData) []string {
 	if len(args) == 0 || (len(args) == 1 && args[0] == "") {
-		return 0, EndActionEnd, viableSuggestions(possibilities, state), true, nil
+		return viableSuggestions(possibilities, state)
 	}
+
+	var suggestions []string
 
 	for i := range possibilities {
 		pos := &possibilities[i]
@@ -443,52 +409,64 @@ func completeSubtree(possibilities []ArgPossibility, args []string, state OutDat
 			continue
 		}
 
+		// Delegate token matching and repetition handling to parsePossibility
 		consumedTokens, transformedVal, err := parsePossibility(*pos, args)
 		if err != nil {
 			continue
 		}
 
-		hadPrev, prevVal := false, any(nil)
+		branchState := cloneState(state)
 		if pos.Name != "" {
-			prevVal, hadPrev = state[pos.Name]
-			state[pos.Name] = transformedVal
+			branchState[pos.Name] = transformedVal
 		}
 
-		// IF ARGS EXHAUSTED HERE: If all tokens in `args` were consumed by this node,
-		// and this node has children, return child suggestions.
-		if consumedTokens == len(args) {
-			if len(pos.Children) > 0 {
-				return consumedTokens, pos.EndAction, viableSuggestions(pos.Children, state), true, nil
-			}
-			return consumedTokens, pos.EndAction, nil, true, nil
-		}
+		remainingArgs := args[consumedTokens:]
+		argsExhausted := len(remainingArgs) == 0
 
 		if len(pos.Children) == 0 {
-			return consumedTokens, pos.EndAction, nil, false, nil
+			if argsExhausted && pos.EndAction == EndActionLoop {
+				suggestions = append(suggestions, viableSuggestions(root, make(OutData))...)
+			}
+			// Otherwise this branch is a dead end for completion purposes:
+			// either it doesn't loop (nothing valid can follow), or there
+			// are real leftover args past a childless leaf (Parse would
+			// reject that as a trailing-argument error).
+			continue
 		}
 
-		childConsumed, childEndAction, childSuggestions, childRanOut, err := completeSubtree(pos.Children, args[consumedTokens:], state)
-		if err == nil {
-			if childRanOut {
-				return consumedTokens + childConsumed, childEndAction, childSuggestions, true, nil
-			}
-			if childConsumed == 0 {
-				childEndAction = pos.EndAction
-			}
-			return consumedTokens + childConsumed, childEndAction, nil, false, nil
-		}
-
-		// Branch failed: undo the tentative state write before trying the next sibling
-		if pos.Name != "" {
-			if hadPrev {
-				state[pos.Name] = prevVal
-			} else {
-				delete(state, pos.Name)
-			}
-		}
+		suggestions = append(suggestions, completeSubtree(root, pos.Children, remainingArgs, branchState)...)
 	}
 
-	return 0, EndActionEnd, nil, false, fmt.Errorf("argument %q doesn't match anything in the tree", args[0])
+	return dedupSort(suggestions)
+}
+
+// cloneState returns a shallow copy of state, so a completion branch can
+// tentatively extend it without affecting sibling branches explored from
+// the same starting state.
+func cloneState(state OutData) OutData {
+	clone := make(OutData, len(state))
+	for k, v := range state {
+		clone[k] = v
+	}
+	return clone
+}
+
+// dedupSort returns values deduplicated and sorted, or nil if values is
+// empty - matching Complete's documented "nil means nothing to suggest".
+func dedupSort(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 func MakeArgTypeLiteral(value string) ArgType {
 	return ArgType{
