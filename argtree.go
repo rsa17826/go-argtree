@@ -421,16 +421,28 @@ func completeSubtree(root, possibilities []ArgPossibility, args []string, state 
 		}
 
 		remainingArgs := args[consumedTokens:]
-		argsExhausted := len(remainingArgs) == 0
+		// A lone trailing "" is the shell's "user just typed a space, next
+		// word not started yet" sentinel, not a real leftover argument -
+		// treat it the same as "no args left" for deciding whether this
+		// branch's pass has fully completed.
+		argsExhausted := len(remainingArgs) == 0 || (len(remainingArgs) == 1 && remainingArgs[0] == "")
 
 		if len(pos.Children) == 0 {
-			if argsExhausted && pos.EndAction == EndActionLoop {
-				suggestions = append(suggestions, viableSuggestions(root, make(OutData))...)
+			if pos.EndAction == EndActionLoop {
+				if argsExhausted {
+					suggestions = append(suggestions, viableSuggestions(root, make(OutData))...)
+				} else {
+					// Real leftover tokens past this loop-back leaf: a
+					// fresh repetition starts here, exactly like Parse's
+					// own top-level loop restarts from tree against
+					// whatever args remain. Recurse from the root with a
+					// brand new state.
+					suggestions = append(suggestions, completeSubtree(root, root, remainingArgs, make(OutData))...)
+				}
 			}
 			// Otherwise this branch is a dead end for completion purposes:
-			// either it doesn't loop (nothing valid can follow), or there
-			// are real leftover args past a childless leaf (Parse would
-			// reject that as a trailing-argument error).
+			// it doesn't loop, so nothing valid can follow (Parse would
+			// reject leftover args here as a trailing-argument error).
 			continue
 		}
 
